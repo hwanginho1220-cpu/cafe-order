@@ -6,6 +6,38 @@
 // 대표 프랜차이즈 기본 프리셋 데이터
 const DEFAULT_CAFES = [
   {
+    id: "brunchbean",
+    name: "브런치빈",
+    icon: "🥗",
+    themeColor: "#059669",
+    categories: ["추천/인기", "커피", "디카페인", "페어링/에이드", "주스/스무디", "티/음료"],
+    menus: [
+      { id: "bb-1", name: "아메리카노", category: "커피", price: 4500, temp: "both", popular: true },
+      { id: "bb-2", name: "카페라떼", category: "커피", price: 4900, temp: "both", popular: true },
+      { id: "bb-3", name: "바닐라라떼", category: "커피", price: 5500, temp: "both", popular: true },
+      { id: "bb-4", name: "헤이즐넛 라떼", category: "커피", price: 5500, temp: "both", popular: false },
+      { id: "bb-5", name: "아인슈페너", category: "커피", price: 5500, temp: "ice", popular: true },
+      { id: "bb-6", name: "디카페인 콜드브루", category: "디카페인", price: 4900, temp: "ice", popular: true },
+      { id: "bb-7", name: "디카페인 콜드브루 라떼", category: "디카페인", price: 5300, temp: "ice", popular: false },
+      { id: "bb-8", name: "디카페인 콜드브루 바닐라라떼", category: "디카페인", price: 5900, temp: "ice", popular: false },
+      { id: "bb-9", name: "트로피컬 페어 에이드", category: "페어링/에이드", price: 6000, temp: "ice", popular: true },
+      { id: "bb-10", name: "시트러스 페어 에이드", category: "페어링/에이드", price: 6000, temp: "ice", popular: true },
+      { id: "bb-11", name: "쏠 베리 페어 에이드", category: "페어링/에이드", price: 6000, temp: "ice", popular: false },
+      { id: "bb-12", name: "애플망고 페어 에이드", category: "페어링/에이드", price: 6000, temp: "ice", popular: false },
+      { id: "bb-13", name: "자몽에이드", category: "페어링/에이드", price: 5800, temp: "ice", popular: false },
+      { id: "bb-14", name: "레몬에이드", category: "페어링/에이드", price: 5800, temp: "ice", popular: false },
+      { id: "bb-15", name: "리얼 딸기 주스", category: "주스/스무디", price: 5800, temp: "ice", popular: true },
+      { id: "bb-16", name: "리얼 망고 주스", category: "주스/스무디", price: 5800, temp: "ice", popular: false },
+      { id: "bb-17", name: "스트로베리 망고 스무디", category: "주스/스무디", price: 6000, temp: "ice", popular: false },
+      { id: "bb-18", name: "케일 그린 클렌즈 주스", category: "주스/스무디", price: 6000, temp: "ice", popular: false },
+      { id: "bb-19", name: "복숭아 아이스티", category: "티/음료", price: 4500, temp: "ice", popular: true },
+      { id: "bb-20", name: "후르츠 셔벗", category: "티/음료", price: 5800, temp: "ice", popular: false },
+      { id: "bb-21", name: "캐모마일 티", category: "티/음료", price: 4900, temp: "both", popular: false },
+      { id: "bb-22", name: "얼그레이 티", category: "티/음료", price: 4900, temp: "both", popular: false },
+      { id: "bb-23", name: "탄산음료 (콜라/사이다)", category: "티/음료", price: 3000, temp: "ice", popular: false }
+    ]
+  },
+  {
     id: "starbucks",
     name: "스타벅스",
     icon: "☕",
@@ -125,6 +157,19 @@ class CafeDataManager {
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // 브런치빈 프리셋 최신화 및 위치 보정
+          const bbIndex = parsed.findIndex(c => c.id === "brunchbean" || (c.name && c.name.replace(/\s/g, "") === "브런치빈"));
+          if (bbIndex !== -1) {
+            parsed[bbIndex].id = "brunchbean";
+            parsed[bbIndex].name = "브런치빈";
+            parsed[bbIndex].icon = "🥗";
+            parsed[bbIndex].themeColor = "#059669";
+            parsed[bbIndex].categories = DEFAULT_CAFES[0].categories;
+            parsed[bbIndex].menus = DEFAULT_CAFES[0].menus;
+          } else {
+            parsed.unshift(JSON.parse(JSON.stringify(DEFAULT_CAFES[0])));
+          }
+          this.saveCafes(parsed);
           return parsed;
         }
       }
@@ -145,6 +190,7 @@ class CafeDataManager {
 
   getActiveCafeId() {
     const saved = localStorage.getItem(this.activeCafeKey);
+    if (saved === "custom_1789116989987") return "brunchbean";
     if (saved && this.cafes.some(c => c.id === saved)) {
       return saved;
     }

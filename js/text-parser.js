@@ -35,7 +35,14 @@ class SmartOrderParser {
       { patterns: [/민트\s?초코/i, /민초/i], name: "민트초코오레오 라떼", temp: "ICE" },
       { patterns: [/말차\s?라떼/i, /녹차\s?라떼/i], name: "말차 라떼", temp: "both" },
       { patterns: [/생과일\s?딸기/i, /딸기\s?주스/i], name: "생과일 딸기주스", temp: "ICE" },
-      { patterns: [/캐모마일/i], name: "캐모마일 티", temp: "HOT" }
+      { patterns: [/캐모마일/i], name: "캐모마일 티", temp: "HOT" },
+      { patterns: [/디카[\s.]?콜[\s.]?브\b/i, /디카페인\s?콜드\s?브루/i], name: "디카페인 콜드브루", temp: "ICE" },
+      { patterns: [/아인슈페너/i], name: "아인슈페너", temp: "ICE" },
+      { patterns: [/트로피컬/i], name: "트로피컬 페어 에이드", temp: "ICE" },
+      { patterns: [/시트러스/i], name: "시트러스 페어 에이드", temp: "ICE" },
+      { patterns: [/쏠\s?베리/i], name: "쏠 베리 페어 에이드", temp: "ICE" },
+      { patterns: [/복숭아\s?아이스티/i, /아이스티/i], name: "복숭아 아이스티", temp: "ICE" },
+      { patterns: [/후르츠\s?셔벗/i, /셔벗/i], name: "후르츠 셔벗", temp: "ICE" }
     ];
 
     // 옵션 정규표현식
