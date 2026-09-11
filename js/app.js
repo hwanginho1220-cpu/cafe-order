@@ -1021,7 +1021,7 @@ class App {
 
     let lines = [];
     lines.push(`☕ [${activeCafe.name}] 단체 음료 주문 내역`);
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`━━━━━━━━━━━━`);
 
     for (const item of this.orderMap.values()) {
       if (item.qty <= 0) continue;
@@ -1033,7 +1033,7 @@ class App {
       lines.push(`• [${item.temp}] ${item.menuName}${optText}: ${item.qty}잔${personText}`);
     }
 
-    lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`━━━━━━━━━━━━`);
     lines.push(`총 ${totalCount}잔 / 예상 합계: ${totalPrice.toLocaleString()}원`);
 
     const fullText = lines.join("\n");
