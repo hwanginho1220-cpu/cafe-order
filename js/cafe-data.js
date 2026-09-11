@@ -270,6 +270,44 @@ class CafeDataManager {
     return true;
   }
 
+  setAllCafes(cafes) {
+    if (!Array.isArray(cafes) || cafes.length === 0) return false;
+    this.cafes = cafes;
+    this.saveCafes();
+    if (!this.cafes.some(c => c.id === this.getActiveCafeId())) {
+      this.setActiveCafeId(this.cafes[0].id);
+    }
+    return true;
+  }
+
+  updateCafeName(cafeId, newName) {
+    const cafe = this.cafes.find(c => c.id === cafeId);
+    if (!cafe || !newName || !newName.trim()) return false;
+    cafe.name = newName.trim();
+    this.saveCafes();
+    return true;
+  }
+
+  updateMenu(cafeId, menuId, { name, category, price, temp }) {
+    const cafe = this.cafes.find(c => c.id === cafeId);
+    if (!cafe) return false;
+    const menu = cafe.menus.find(m => m.id === menuId);
+    if (!menu) return false;
+
+    if (name && name.trim()) menu.name = name.trim();
+    if (price !== undefined && price !== "") menu.price = Number(price) || 0;
+    if (category && category.trim()) {
+      menu.category = category.trim();
+      if (!cafe.categories.includes(menu.category)) {
+        cafe.categories.push(menu.category);
+      }
+    }
+    if (temp) menu.temp = temp;
+
+    this.saveCafes();
+    return true;
+  }
+
   resetToDefaults() {
     this.cafes = JSON.parse(JSON.stringify(DEFAULT_CAFES));
     this.saveCafes();

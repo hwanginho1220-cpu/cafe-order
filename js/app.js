@@ -43,6 +43,7 @@ class App {
     this.quickNameInput = document.getElementById("quickMenuName");
     this.quickPriceInput = document.getElementById("quickMenuPrice");
     this.quickTempSelect = document.getElementById("quickMenuTemp");
+    this.quickMenuMild = document.getElementById("quickMenuMild");
     this.btnQuickAdd = document.getElementById("btnQuickAdd");
 
     // 텍스트 파서 요소
@@ -82,6 +83,7 @@ class App {
     this.newMenuCategoryInput = document.getElementById("newMenuCategory");
     this.newMenuTempSelect = document.getElementById("newMenuTemp");
     this.btnDeleteCurrentCafe = document.getElementById("btnDeleteCurrentCafe");
+    this.btnEditCurrentCafe = document.getElementById("btnEditCurrentCafe");
 
     // 앱 타이틀 및 카페 순서 재배치 요소
     this.brandTitleArea = document.getElementById("brandTitleArea");
@@ -127,7 +129,24 @@ class App {
         if (this.customAppTitleInput) this.customAppTitleInput.value = roomData.title;
       }
 
-      // 2. 활성 카페 실시간 동기화
+      // 2. 전체 카페 및 메뉴 목록 실시간 동기화 (생성/삭제/수정/순서 전체 반영)
+      if (Array.isArray(roomData.cafes) && roomData.cafes.length > 0) {
+        const currentCafesJson = JSON.stringify(this.cafeManager.cafes);
+        const incomingCafesJson = JSON.stringify(roomData.cafes);
+        if (currentCafesJson !== incomingCafesJson) {
+          this.cafeManager.setAllCafes(roomData.cafes);
+          this.renderCafeChips();
+          this.renderCategoryChips();
+          this.renderMenuList();
+          if (this.currentTab === "manage") {
+            this.renderManageView();
+          }
+        }
+      } else if (this.sync.isOnline && (!roomData.cafes || roomData.cafes.length === 0)) {
+        this.sync.setCafes(this.cafeManager.cafes);
+      }
+
+      // 2-1. 활성 카페 실시간 동기화
       if (roomData.activeCafeId && roomData.activeCafeId !== this.cafeManager.getActiveCafeId()) {
         if (this.cafeManager.cafes.some(c => c.id === roomData.activeCafeId)) {
           this.cafeManager.setActiveCafeId(roomData.activeCafeId);
@@ -344,6 +363,9 @@ class App {
     this.btnAddCustomCafe.addEventListener("click", () => this.handleAddCafe());
     this.btnAddCustomMenu.addEventListener("click", () => this.handleAddMenu());
     this.btnDeleteCurrentCafe.addEventListener("click", () => this.handleDeleteCafe());
+    if (this.btnEditCurrentCafe) {
+      this.btnEditCurrentCafe.addEventListener("click", () => this.handleEditCafeName());
+    }
     this.manageCafeSelect.addEventListener("change", (e) => {
       this.cafeManager.setActiveCafeId(e.target.value);
       this.renderCafeChips();
@@ -459,29 +481,29 @@ class App {
     const card = document.createElement("div");
     card.className = "menu-card";
 
-    // 기본 선택 온도: both면 기존 주문 내역(HOT만 있는지 여부)에 맞춰 자동 설정
     let currentTemp = menu.temp === "hot" ? "HOT" : "ICE";
+    let isMild = false;
+
+    // 기본 선택 온도: both면 기존 주문 내역(HOT만 있는지 여부)에 맞춰 자동 설정
     if (menu.temp === "both") {
-      const hotItem = this.orderMap.get(`${menu.name}_HOT`);
-      const iceItem = this.orderMap.get(`${menu.name}_ICE`);
-      if ((!iceItem || iceItem.qty === 0) && (hotItem && hotItem.qty > 0)) {
+      const hotOrders = Array.from(this.orderMap.values()).filter(o => o.menuName === menu.name && o.temp === "HOT" && o.qty > 0);
+      const iceOrders = Array.from(this.orderMap.values()).filter(o => o.menuName === menu.name && o.temp === "ICE" && o.qty > 0);
+      if (iceOrders.length === 0 && hotOrders.length > 0) {
         currentTemp = "HOT";
       }
     }
 
-    const getOrderKey = () => `${menu.name}_${currentTemp}`;
+    const getOrderKey = () => `${menu.name}_${currentTemp}${isMild ? '_연하게' : ''}`;
     const getCurrentQty = () => {
       const item = this.orderMap.get(getOrderKey());
       return item ? item.qty : 0;
     };
 
     const hasAnyOrder = () => {
-      if (menu.temp === "both") {
-        const iceQty = (this.orderMap.get(`${menu.name}_ICE`) || {}).qty || 0;
-        const hotQty = (this.orderMap.get(`${menu.name}_HOT`) || {}).qty || 0;
-        return (iceQty + hotQty) > 0;
+      for (const item of this.orderMap.values()) {
+        if (item.menuName === menu.name && item.qty > 0) return true;
       }
-      return getCurrentQty() > 0;
+      return false;
     };
 
     const updateCardState = () => {
@@ -506,6 +528,7 @@ class App {
         <div class="menu-price">${menu.price.toLocaleString()}원</div>
       </div>
       <div class="order-controls">
+        <button type="button" class="btn-opt-mild ${isMild ? 'active' : ''}" title="연하게(샷 조절)">🌱 연하게</button>
         ${menu.temp === 'both' ? `
           <div class="temp-toggle-group">
             <button type="button" class="btn-temp ice ${currentTemp === 'ICE' ? 'active' : ''}">ICE</button>
@@ -519,6 +542,16 @@ class App {
         </div>
       </div>
     `;
+
+    // 연하게 토글 버튼 이벤트
+    const btnMild = card.querySelector(".btn-opt-mild");
+    if (btnMild) {
+      btnMild.addEventListener("click", () => {
+        isMild = !isMild;
+        btnMild.classList.toggle("active", isMild);
+        updateCardState();
+      });
+    }
 
     // 메뉴 정보 클릭 시에도 +1 추가
     card.querySelector(".menu-info").addEventListener("click", () => {
@@ -557,7 +590,7 @@ class App {
         temp: currentTemp,
         price: menu.price,
         qty: 0,
-        options: [],
+        options: isMild ? ["연하게"] : [],
         persons: [],
         personMap: {}
       };
@@ -638,6 +671,7 @@ class App {
     const name = this.quickNameInput.value.trim();
     const price = parseInt(this.quickPriceInput.value, 10) || 0;
     const temp = this.quickTempSelect.value;
+    const isMild = this.quickMenuMild ? this.quickMenuMild.checked : false;
     const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
 
     if (!name) {
@@ -645,13 +679,14 @@ class App {
       return;
     }
 
-    const key = `${name}_${temp}`;
+    const optList = isMild ? ["연하게"] : ["즉석추가"];
+    const key = `${name}_${temp}${isMild ? '_연하게' : ''}`;
     const existing = this.orderMap.get(key) || {
       menuName: name,
       temp: temp,
       price: price,
       qty: 0,
-      options: ["즉석추가"],
+      options: optList,
       persons: [],
       personMap: {}
     };
@@ -662,8 +697,9 @@ class App {
 
     this.quickNameInput.value = "";
     this.quickPriceInput.value = "";
+    if (this.quickMenuMild) this.quickMenuMild.checked = false;
     this.updateBottomBar();
-    this.showToast(`'${name} (${temp})' 1잔이 추가되었습니다!`);
+    this.showToast(`'${name} (${temp}${isMild ? ' / 연하게' : ''})' 1잔이 추가되었습니다!`);
     this.syncOrdersToCloud();
   }
 
@@ -967,7 +1003,10 @@ class App {
           this.renderCafeChips();
           this.renderCafeReorderList();
           this.renderManageView();
-          if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+          if (this.sync) {
+            this.sync.setCafes(this.cafeManager.cafes);
+            this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+          }
           this.showToast(`'${cafe.name}' 카페가 앞으로 이동되었습니다.`);
         }
       });
@@ -977,7 +1016,10 @@ class App {
           this.renderCafeChips();
           this.renderCafeReorderList();
           this.renderManageView();
-          if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+          if (this.sync) {
+            this.sync.setCafes(this.cafeManager.cafes);
+            this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+          }
           this.showToast(`'${cafe.name}' 카페가 뒤로 이동되었습니다.`);
         }
       });
@@ -996,27 +1038,121 @@ class App {
     }
 
     activeCafe.menus.forEach(menu => {
+      const container = document.createElement("div");
+
       const row = document.createElement("div");
       row.className = "menu-manage-item";
       row.innerHTML = `
-        <div>
+        <div class="menu-manage-info">
           <span style="font-weight:700;">${menu.name}</span>
           <span style="font-size:0.8rem; color:var(--text-muted); margin-left:6px;">(${menu.price.toLocaleString()}원 / ${menu.temp})</span>
+          <span style="font-size:0.75rem; color:#64748B; margin-left:4px;">[${menu.category}]</span>
         </div>
-        <button type="button" class="btn-del-menu" data-id="${menu.id}">삭제</button>
+        <div class="menu-manage-actions">
+          <button type="button" class="btn-edit-menu" data-id="${menu.id}">✏️ 수정</button>
+          <button type="button" class="btn-del-menu" data-id="${menu.id}">삭제</button>
+        </div>
       `;
 
+      // 인라인 메뉴 수정 폼
+      const editForm = document.createElement("div");
+      editForm.className = "menu-edit-form";
+      editForm.style.display = "none";
+      editForm.innerHTML = `
+        <div class="edit-row">
+          <input type="text" class="form-input edit-name" value="${menu.name}" placeholder="메뉴 이름">
+          <input type="number" class="form-input edit-price" value="${menu.price}" placeholder="가격(원)" style="max-width: 110px;">
+        </div>
+        <div class="edit-row">
+          <input type="text" class="form-input edit-cat" value="${menu.category}" placeholder="카테고리">
+          <select class="form-select edit-temp" style="max-width: 140px;">
+            <option value="both" ${menu.temp === 'both' ? 'selected' : ''}>HOT / ICE</option>
+            <option value="ice" ${menu.temp === 'ice' ? 'selected' : ''}>ICE 전용</option>
+            <option value="hot" ${menu.temp === 'hot' ? 'selected' : ''}>HOT 전용</option>
+          </select>
+        </div>
+        <div class="edit-actions">
+          <button type="button" class="btn-cancel-edit">취소</button>
+          <button type="button" class="btn-save-edit">저장 & 전체반영</button>
+        </div>
+      `;
+
+      // 수정 버튼 토글
+      row.querySelector(".btn-edit-menu").addEventListener("click", () => {
+        const isHidden = editForm.style.display === "none";
+        editForm.style.display = isHidden ? "flex" : "none";
+      });
+
+      // 수정 취소
+      editForm.querySelector(".btn-cancel-edit").addEventListener("click", () => {
+        editForm.style.display = "none";
+      });
+
+      // 수정 저장
+      editForm.querySelector(".btn-save-edit").addEventListener("click", () => {
+        const updatedName = editForm.querySelector(".edit-name").value.trim();
+        const updatedPrice = parseInt(editForm.querySelector(".edit-price").value, 10) || 0;
+        const updatedCat = editForm.querySelector(".edit-cat").value.trim() || "기타";
+        const updatedTemp = editForm.querySelector(".edit-temp").value;
+
+        if (!updatedName) {
+          alert("메뉴 이름을 입력해주세요.");
+          return;
+        }
+
+        this.cafeManager.updateMenu(activeCafe.id, menu.id, {
+          name: updatedName,
+          price: updatedPrice,
+          category: updatedCat,
+          temp: updatedTemp
+        });
+
+        this.renderManageMenuList();
+        this.renderCategoryChips();
+        this.renderMenuList();
+
+        if (this.sync) {
+          this.sync.setCafes(this.cafeManager.cafes);
+        }
+        this.showToast(`'${updatedName}' 메뉴가 수정되어 전체 반영되었습니다! ✨`);
+      });
+
+      // 삭제
       row.querySelector(".btn-del-menu").addEventListener("click", () => {
         if (confirm(`'${menu.name}' 메뉴를 삭제하시겠습니까?`)) {
           this.cafeManager.deleteMenu(activeCafe.id, menu.id);
           this.renderManageMenuList();
           this.renderMenuList();
+          if (this.sync) {
+            this.sync.setCafes(this.cafeManager.cafes);
+          }
           this.showToast(`'${menu.name}' 메뉴가 삭제되었습니다.`);
         }
       });
 
-      this.menuManageList.appendChild(row);
+      container.appendChild(row);
+      container.appendChild(editForm);
+      this.menuManageList.appendChild(container);
     });
+  }
+
+  handleEditCafeName() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    const newName = prompt(`'${activeCafe.name}' 카페의 새로운 이름을 입력하세요:`, activeCafe.name);
+    if (newName !== null) {
+      const trimmed = newName.trim();
+      if (trimmed && trimmed !== activeCafe.name) {
+        this.cafeManager.updateCafeName(activeCafe.id, trimmed);
+        this.renderCafeChips();
+        this.renderCategoryChips();
+        this.renderMenuList();
+        this.renderManageView();
+        if (this.sync) {
+          this.sync.setCafes(this.cafeManager.cafes);
+        }
+        this.showToast(`카페 이름이 '${trimmed}'(으)로 수정되어 전체 반영되었습니다! ✨`);
+      }
+    }
   }
 
   handleAddCafe() {
@@ -1029,7 +1165,10 @@ class App {
     this.newCafeNameInput.value = "";
     this.renderCafeChips();
     this.renderManageView();
-    if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+    if (this.sync) {
+      this.sync.setCafes(this.cafeManager.cafes);
+      this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+    }
     this.showToast(`새 카페 '${name}'이(가) 등록되었습니다!`);
   }
 
@@ -1041,7 +1180,10 @@ class App {
         this.renderCategoryChips();
         this.renderMenuList();
         this.renderManageView();
-        if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+        if (this.sync) {
+          this.sync.setCafes(this.cafeManager.cafes);
+          this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+        }
         this.showToast("카페가 삭제되었습니다.");
       }
     }
@@ -1072,6 +1214,9 @@ class App {
     this.renderManageMenuList();
     this.renderCategoryChips();
     this.renderMenuList();
+    if (this.sync) {
+      this.sync.setCafes(this.cafeManager.cafes);
+    }
     this.showToast(`'${name}' 메뉴가 추가되었습니다!`);
   }
 }

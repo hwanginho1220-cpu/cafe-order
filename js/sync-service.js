@@ -166,6 +166,18 @@ class CloudSyncService {
     }
   }
 
+  // 전체 카페 및 메뉴 목록 실시간 동기화 (생성/삭제/수정/순서 공통)
+  async setCafes(cafes) {
+    this.roomData.cafes = cafes;
+    if (this.roomRef) {
+      try {
+        await this.roomRef.set({ cafes, updatedAt: Date.now() }, { merge: true });
+      } catch (e) {
+        console.error("전체 카페 목록 동기화 실패:", e);
+      }
+    }
+  }
+
   // 전체 주문 상태 저장 (배열 형태)
   async setOrders(ordersArray) {
     this.roomData.orders = ordersArray;

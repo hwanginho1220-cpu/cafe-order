@@ -102,6 +102,10 @@
           <option value="ICE">ICE</option>
           <option value="HOT">HOT</option>
         </select>
+        <label class="quick-mild-label" title="연하게(샷 조절)">
+          <input type="checkbox" id="quickMenuMild">
+          <span>🌱연하게</span>
+        </label>
         <input type="number" id="quickMenuPrice" class="input-quick" style="max-width: 80px;" placeholder="가격(원)">
         <button type="button" id="btnQuickAdd" class="btn-quick-add">+ 추가</button>
       </div>
@@ -159,11 +163,14 @@
         <div id="cafeReorderList"></div>
       </div>
 
-      <!-- 1. 활성 카페 선택 및 삭제 -->
+      <!-- 1. 활성 카페 선택 및 삭제/수정 -->
       <div class="manage-card">
         <div class="card-title-row">
           <span class="card-title">🏪 편집할 카페 선택</span>
-          <button type="button" id="btnDeleteCurrentCafe" style="color:#EF4444; background:none; border:none; font-size:0.82rem; cursor:pointer;">현재 카페 삭제</button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btnEditCurrentCafe" style="color:var(--primary); background:none; border:none; font-size:0.82rem; cursor:pointer; font-weight:700;">✏️ 이름 수정</button>
+            <button type="button" id="btnDeleteCurrentCafe" style="color:#EF4444; background:none; border:none; font-size:0.82rem; cursor:pointer;">현재 카페 삭제</button>
+          </div>
         </div>
         <div class="form-group">
           <select id="manageCafeSelect" class="form-select"></select>
