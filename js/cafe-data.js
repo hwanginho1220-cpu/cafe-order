@@ -160,6 +160,29 @@ class CafeDataManager {
     return this.cafes.find(c => c.id === id) || this.cafes[0];
   }
 
+  getAppTitle() {
+    return localStorage.getItem("cafe_order_app_title") || "모두의 음료";
+  }
+
+  setAppTitle(newTitle) {
+    const trimmed = (newTitle || "").trim() || "모두의 음료";
+    localStorage.setItem("cafe_order_app_title", trimmed);
+    return trimmed;
+  }
+
+  moveCafe(cafeId, direction) {
+    // direction: -1 (위/앞으로), 1 (아래/뒤로)
+    const index = this.cafes.findIndex(c => c.id === cafeId);
+    if (index === -1) return false;
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= this.cafes.length) return false;
+
+    const [item] = this.cafes.splice(index, 1);
+    this.cafes.splice(targetIndex, 0, item);
+    this.saveCafes();
+    return true;
+  }
+
   addCafe(name, icon = "☕", themeColor = "#6366F1") {
     const id = "custom_" + Date.now();
     const newCafe = {

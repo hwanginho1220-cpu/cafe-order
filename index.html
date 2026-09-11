@@ -17,9 +17,10 @@
     <!-- 상단 고정 헤더 -->
     <header class="app-header">
       <div class="header-top">
-        <div class="brand-title">
+        <div class="brand-title" id="brandTitleArea" title="클릭하여 앱 제목 변경" style="cursor: pointer; user-select: none;">
           <span>☕</span>
-          <span>모두의 음료</span>
+          <span id="appTitleText">모두의 음료</span>
+          <span style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;" title="제목 수정">✏️</span>
           <span class="brand-badge">단체 주문 도우미</span>
         </div>
         <div class="header-actions">
@@ -108,6 +109,23 @@
 
     <!-- ==================== 탭 3: 카페 / 메뉴 관리 ==================== -->
     <section class="tab-content" id="tab-manage">
+      <!-- 0-1. 앱 제목 변경 -->
+      <div class="manage-card">
+        <div class="card-title">🏷️ 앱 제목(이름) 변경</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">상단에 표시되는 프로그램 제목을 원하는 이름으로 바꿔보세요.</div>
+        <div class="form-group" style="display: flex; gap: 8px;">
+          <input type="text" id="customAppTitleInput" class="form-input" placeholder="예: 우리팀 커피 심부름, OO부 음료 주문">
+          <button type="button" id="btnSaveAppTitle" class="btn-quick-add" style="border-radius: var(--radius-sm);">저장</button>
+        </div>
+      </div>
+
+      <!-- 0-2. 카페 순서 변경 -->
+      <div class="manage-card">
+        <div class="card-title">🔄 카페 표시 순서 변경</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">상단 탭에 나오는 카페 순서를 위/아래 버튼으로 손쉽게 정렬하세요.</div>
+        <div id="cafeReorderList"></div>
+      </div>
+
       <!-- 1. 활성 카페 선택 및 삭제 -->
       <div class="manage-card">
         <div class="card-title-row">

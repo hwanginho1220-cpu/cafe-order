@@ -79,11 +79,44 @@ class App {
     this.newMenuTempSelect = document.getElementById("newMenuTemp");
     this.btnDeleteCurrentCafe = document.getElementById("btnDeleteCurrentCafe");
 
+    // 앱 타이틀 및 카페 순서 재배치 요소
+    this.brandTitleArea = document.getElementById("brandTitleArea");
+    this.appTitleText = document.getElementById("appTitleText");
+    this.customAppTitleInput = document.getElementById("customAppTitleInput");
+    this.btnSaveAppTitle = document.getElementById("btnSaveAppTitle");
+    this.cafeReorderList = document.getElementById("cafeReorderList");
+
+    // 저장된 앱 제목 로드
+    const savedTitle = this.cafeManager.getAppTitle();
+    if (this.appTitleText) this.appTitleText.textContent = savedTitle;
+    document.title = `${savedTitle} - 단체 음료 주문 취합기`;
+    if (this.customAppTitleInput) this.customAppTitleInput.value = savedTitle;
+
     // 토스트
     this.toastEl = document.getElementById("toastMsg");
   }
 
   initEvents() {
+    // 앱 제목 변경 이벤트
+    if (this.brandTitleArea) {
+      this.brandTitleArea.addEventListener("click", () => {
+        const current = this.cafeManager.getAppTitle();
+        const input = prompt("새로운 프로그램 제목을 입력하세요:", current);
+        if (input !== null) {
+          this.updateAppTitle(input);
+        }
+      });
+    }
+
+    if (this.btnSaveAppTitle) {
+      this.btnSaveAppTitle.addEventListener("click", () => {
+        this.updateAppTitle(this.customAppTitleInput.value);
+      });
+      this.customAppTitleInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") this.updateAppTitle(this.customAppTitleInput.value);
+      });
+    }
+
     // 탭 전환 이벤트
     this.tabBtns.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -647,9 +680,25 @@ class App {
     });
   }
 
+  updateAppTitle(newTitle) {
+    const title = this.cafeManager.setAppTitle(newTitle);
+    if (this.appTitleText) this.appTitleText.textContent = title;
+    document.title = `${title} - 단체 음료 주문 취합기`;
+    if (this.customAppTitleInput) this.customAppTitleInput.value = title;
+    this.showToast(`앱 제목이 '${title}'(으)로 변경되었습니다! ✨`);
+  }
+
   // --- 카페/메뉴 관리 탭 기능 ---
   renderManageView() {
-    // 카페 셀렉트 박스 갱신
+    // 0. 앱 제목 인풋 갱신
+    if (this.customAppTitleInput) {
+      this.customAppTitleInput.value = this.cafeManager.getAppTitle();
+    }
+
+    // 1. 카페 순서 목록 렌더링
+    this.renderCafeReorderList();
+
+    // 2. 카페 셀렉트 박스 갱신
     this.manageCafeSelect.innerHTML = "";
     this.cafeManager.cafes.forEach(cafe => {
       const opt = document.createElement("option");
@@ -662,6 +711,50 @@ class App {
     });
 
     this.renderManageMenuList();
+  }
+
+  renderCafeReorderList() {
+    if (!this.cafeReorderList) return;
+    this.cafeReorderList.innerHTML = "";
+
+    this.cafeManager.cafes.forEach((cafe, index) => {
+      const row = document.createElement("div");
+      row.className = "reorder-cafe-item";
+      const isFirst = index === 0;
+      const isLast = index === this.cafeManager.cafes.length - 1;
+
+      row.innerHTML = `
+        <div class="reorder-cafe-info">
+          <span>${cafe.icon || '☕'}</span>
+          <span>${cafe.name}</span>
+          ${cafe.id === this.cafeManager.getActiveCafeId() ? '<span class="badge-popular" style="font-size:0.68rem;">선택중</span>' : ''}
+        </div>
+        <div class="reorder-actions">
+          <button type="button" class="btn-reorder btn-move-up" ${isFirst ? 'disabled' : ''} title="왼쪽(앞)으로 이동">▲ 위로</button>
+          <button type="button" class="btn-reorder btn-move-down" ${isLast ? 'disabled' : ''} title="오른쪽(뒤)으로 이동">▼ 아래로</button>
+        </div>
+      `;
+
+      row.querySelector(".btn-move-up").addEventListener("click", () => {
+        if (this.cafeManager.moveCafe(cafe.id, -1)) {
+          this.renderCafeChips();
+          this.renderCafeReorderList();
+          this.renderManageView();
+          this.showToast(`'${cafe.name}' 카페가 앞으로 이동되었습니다.`);
+        }
+      });
+
+      row.querySelector(".btn-move-down").addEventListener("click", () => {
+        if (this.cafeManager.moveCafe(cafe.id, 1)) {
+          this.renderCafeChips();
+          this.renderCafeReorderList();
+          this.renderManageView();
+          this.showToast(`'${cafe.name}' 카페가 뒤로 이동되었습니다.`);
+        }
+      });
+
+      this.cafeReorderList.appendChild(row);
+    });
   }
 
   renderManageMenuList() {
