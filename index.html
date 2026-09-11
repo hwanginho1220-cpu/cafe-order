@@ -47,9 +47,24 @@
         <span>👤</span> <span>내 이름:</span>
       </div>
       <input type="text" id="userNicknameInput" class="nickname-input" placeholder="이름 입력 (예: 김철수)">
-      <button type="button" id="btnShareRoomLink" class="btn-share-link" title="카톡으로 링크 공유하기">
-        <span>🔗</span> <span>주문방 링크 복사</span>
+      <button type="button" id="btnStartNewOrder" class="btn-new-order" title="새로운 주문 시작하기 (모든 기기 주문 초기화)">
+        <span>🔄</span> <span>새 주문</span>
       </button>
+      <button type="button" id="btnShareRoomLink" class="btn-share-link" title="카톡으로 링크 공유하기">
+        <span>🔗</span> <span>링크 복사</span>
+      </button>
+    </div>
+
+    <!-- 이전 세션 주문 감지 배너 -->
+    <div id="staleOrderBanner" class="stale-order-banner" style="display: none;">
+      <div class="stale-banner-content">
+        <span>⏰</span>
+        <span id="staleOrderBannerText">이전 주문 내역이 남아있습니다.</span>
+      </div>
+      <div class="stale-banner-actions">
+        <button type="button" id="btnStaleNewOrder" class="btn-stale-action">새 주문 시작</button>
+        <button type="button" id="btnStaleDismiss" class="btn-stale-close" title="닫기">✕</button>
+      </div>
     </div>
 
     <!-- PWA 앱 설치 유도 배너 (미설치 기기에서 표시) -->
@@ -245,7 +260,9 @@
         <span class="order-total-price" id="bottomTotalPrice">0원</span>
       </div>
       <div class="order-action-group">
-        <button type="button" id="btnResetOrder" class="btn-reset-order" title="주문 비우기">🗑️</button>
+        <button type="button" id="btnResetOrder" class="btn-reset-order" title="주문 전체 비우기 (새 주문 시작)">
+          <span>🗑️</span> <span class="btn-reset-text">비우기</span>
+        </button>
         <button type="button" id="btnOpenModal" class="btn-view-order">
           <span>📋</span>
           <span>주문서 보기</span>
@@ -304,7 +321,11 @@
       <div class="btn-modal-actions">
         <button type="button" id="btnCopyKakao" class="btn-copy-kakaotalk">
           <span>💬</span>
-          <span>카톡 공유 복사</span>
+          <span>카톡 공유</span>
+        </button>
+        <button type="button" id="btnModalClearOrders" class="btn-modal-clear" title="주문 전체 비우고 새 주문 시작">
+          <span>🗑️</span>
+          <span>주문 비우기</span>
         </button>
         <button type="button" id="btnCloseSheet" class="btn-close-sheet">닫기</button>
       </div>
