@@ -170,7 +170,7 @@ class App {
           this.cafeManager.setAllCafes(roomData.cafes);
           this.renderCafeChips();
           this.renderCategoryChips();
-          this.updateOrRenderMenuList();
+          this.renderMenuList();
           if (this.currentTab === "manage") {
             this.renderManageView();
           }
@@ -185,7 +185,7 @@ class App {
           this.cafeManager.setActiveCafeId(roomData.activeCafeId);
           this.renderCafeChips();
           this.renderCategoryChips();
-          this.updateOrRenderMenuList();
+          this.renderMenuList();
         }
       }
 
@@ -194,7 +194,7 @@ class App {
         if (this.cafeManager.applyCafeOrder(roomData.cafeOrder)) {
           this.renderCafeChips();
           this.renderCategoryChips();
-          this.updateOrRenderMenuList();
+          this.renderMenuList();
           if (this.currentTab === "manage") {
             this.renderCafeReorderList();
           }
@@ -506,6 +506,7 @@ class App {
       this.renderCategoryChips();
       this.renderMenuList();
       this.renderManageMenuList();
+      if (this.sync) this.sync.setActiveCafe(e.target.value);
     });
   }
 
@@ -578,7 +579,20 @@ class App {
     const activeCafe = this.cafeManager.getActiveCafe();
     this.catChipsContainer.innerHTML = "";
 
-    const categories = ["전체", ...(activeCafe.categories || [])];
+    const menus = activeCafe.menus || [];
+    const actualCats = Array.from(new Set(menus.map(m => m.category).filter(Boolean)));
+    const hasPopular = menus.some(m => m.popular);
+
+    const categories = ["전체"];
+    if (hasPopular) categories.push("추천/인기");
+    actualCats.forEach(c => {
+      if (!categories.includes(c)) categories.push(c);
+    });
+
+    if (!categories.includes(this.activeCategory)) {
+      this.activeCategory = "전체";
+    }
+
     categories.forEach(cat => {
       const chip = document.createElement("button");
       chip.className = `cat-chip ${this.activeCategory === cat ? "active" : ""}`;
@@ -609,7 +623,7 @@ class App {
         <div style="text-align: center; padding: 36px 12px; color: var(--text-muted);">
           <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
           <div>등록된 메뉴가 없습니다.</div>
-          <div style="font-size: 0.8rem; margin-top: 4px;">아래 '즉석 메뉴 추가'로 음료를 바로 추가해보세요!</div>
+          <div style="font-size: 0.8rem; margin-top: 4px;">'카페/메뉴 관리'에서 메뉴를 추가해보세요!</div>
         </div>
       `;
       return;
@@ -621,18 +635,31 @@ class App {
     });
   }
 
-  // 실시간 주문 수신 시 기존 카드 DOM을 파괴하지 않고 상태만 즉각 갱신
+  // 실시간 주문 수신 시 기존 카드 DOM을 파괴하지 않고 상태만 즉각 갱신 (메뉴 구성 변경 시엔 즉시 재렌더링)
   updateOrRenderMenuList() {
-    const existingCards = this.menuGrid.querySelectorAll(".menu-card");
-    if (existingCards.length > 0) {
-      existingCards.forEach(card => {
-        if (card._updateCardState) {
-          card._updateCardState();
-        }
-      });
-    } else {
-      this.renderMenuList();
+    const activeCafe = this.cafeManager.getActiveCafe();
+    let currentMenus = (activeCafe.menus || []).slice();
+    if (this.activeCategory === "추천/인기") {
+      currentMenus = currentMenus.filter(m => m.popular);
+    } else if (this.activeCategory !== "전체") {
+      currentMenus = currentMenus.filter(m => m.category === this.activeCategory);
     }
+
+    const existingCards = this.menuGrid.querySelectorAll(".menu-card");
+    const existingNames = Array.from(existingCards).map(c => c._menuName).join('||');
+    const currentNames = currentMenus.map(m => m.name).join('||');
+
+    // 메뉴 개수나 이름 목록이 다르면 깨끗하게 재렌더링
+    if (existingCards.length !== currentMenus.length || existingNames !== currentNames) {
+      this.renderMenuList();
+      return;
+    }
+
+    existingCards.forEach(card => {
+      if (card._updateCardState) {
+        card._updateCardState();
+      }
+    });
   }
 
   createMenuCard(menu, cafe) {
@@ -1795,6 +1822,7 @@ class App {
         if (confirm(`'${menu.name}' 메뉴를 삭제하시겠습니까?`)) {
           this.cafeManager.deleteMenu(activeCafe.id, menu.id);
           this.renderManageMenuList();
+          this.renderCategoryChips();
           this.renderMenuList();
           if (this.sync) {
             this.sync.setCafes(this.cafeManager.cafes);
@@ -1837,10 +1865,13 @@ class App {
     this.cafeManager.addCafe(name);
     this.newCafeNameInput.value = "";
     this.renderCafeChips();
+    this.renderCategoryChips();
+    this.renderMenuList();
     this.renderManageView();
     if (this.sync) {
       this.sync.setCafes(this.cafeManager.cafes);
       this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+      this.sync.setActiveCafe(this.cafeManager.getActiveCafeId());
     }
     this.showToast(`새 카페 '${name}'이(가) 등록되었습니다!`);
   }
@@ -1856,6 +1887,7 @@ class App {
         if (this.sync) {
           this.sync.setCafes(this.cafeManager.cafes);
           this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
+          this.sync.setActiveCafe(this.cafeManager.getActiveCafeId());
         }
         this.showToast("카페가 삭제되었습니다.");
       }
