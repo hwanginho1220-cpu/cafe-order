@@ -18,6 +18,7 @@ class App {
     this.initDOM();
     this.initEvents();
     this.initCloudSync();
+    this.initPWAInstall();
     this.renderCafeChips();
     this.renderCategoryChips();
     this.renderMenuList();
@@ -101,6 +102,13 @@ class App {
     const savedNickname = localStorage.getItem("my_order_nickname") || "";
     if (this.userNicknameInput) this.userNicknameInput.value = savedNickname;
 
+    // PWA 앱 설치 요소
+    this.pwaInstallBanner = document.getElementById("pwaInstallBanner");
+    this.btnDoInstall = document.getElementById("btnDoInstall");
+    this.btnDismissInstall = document.getElementById("btnDismissInstall");
+    this.btnManageInstall = document.getElementById("btnManageInstall");
+    this.cardInstallPwa = document.getElementById("cardInstallPwa");
+
     // 토스트
     this.toastEl = document.getElementById("toastMsg");
   }
@@ -158,6 +166,79 @@ class App {
         this.updateBottomBar();
         this.renderMenuList();
       }
+    });
+  }
+
+  initPWAInstall() {
+    // 1. 서비스 워커 등록
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(err => {
+          console.warn("Service worker 등록 실패:", err);
+        });
+      });
+    }
+
+    this.deferredInstallPrompt = null;
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+    // 이미 독립 앱으로 실행 중이면 배너와 설치 카드 숨김
+    if (isStandalone) {
+      if (this.pwaInstallBanner) this.pwaInstallBanner.style.display = "none";
+      if (this.cardInstallPwa) this.cardInstallPwa.style.display = "none";
+      return;
+    }
+
+    // 2. 크롬/안드로이드 공식 PWA 설치 프롬프트 이벤트 감지
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      this.deferredInstallPrompt = e;
+
+      // 이번 세션에서 닫지 않았다면 상단 배너 표시
+      if (!sessionStorage.getItem("dismiss_install_banner") && this.pwaInstallBanner) {
+        this.pwaInstallBanner.style.display = "flex";
+      }
+    });
+
+    // 3. 설치 버튼 클릭 핸들러
+    const handleInstallAction = async () => {
+      if (this.deferredInstallPrompt) {
+        this.deferredInstallPrompt.prompt();
+        const choiceResult = await this.deferredInstallPrompt.userChoice;
+        if (choiceResult.outcome === "accepted") {
+          this.showToast("앱 설치가 시작되었습니다! 🎉");
+        }
+        this.deferredInstallPrompt = null;
+        if (this.pwaInstallBanner) this.pwaInstallBanner.style.display = "none";
+      } else {
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIos) {
+          alert("📱 아이폰 홈 화면 추가 방법:\n\n1. 사파리 브라우저 하단 중앙 [공유 (네모 위 화살표 ↑)] 버튼 터치\n2. 메뉴에서 [홈 화면에 추가] 선택\n3. 우측 상단 [추가]를 누르면 바탕화면에 생성됩니다!");
+        } else {
+          alert("📱 브라우저 메뉴에서 바로 설치하기:\n\n우측 상단 메뉴(점 3개 ⋮)를 누르고 [앱 설치] 또는 [홈 화면에 추가]를 눌러주세요!");
+        }
+      }
+    };
+
+    if (this.btnDoInstall) {
+      this.btnDoInstall.addEventListener("click", handleInstallAction);
+    }
+    if (this.btnManageInstall) {
+      this.btnManageInstall.addEventListener("click", handleInstallAction);
+    }
+
+    if (this.btnDismissInstall) {
+      this.btnDismissInstall.addEventListener("click", () => {
+        if (this.pwaInstallBanner) this.pwaInstallBanner.style.display = "none";
+        sessionStorage.setItem("dismiss_install_banner", "1");
+      });
+    }
+
+    // 4. 앱 설치 완료 감지
+    window.addEventListener("appinstalled", () => {
+      if (this.pwaInstallBanner) this.pwaInstallBanner.style.display = "none";
+      if (this.cardInstallPwa) this.cardInstallPwa.style.display = "none";
+      this.showToast("바탕화면에 모두의음료 앱이 설치되었습니다! ☕");
     });
   }
 

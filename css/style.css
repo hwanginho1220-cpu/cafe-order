@@ -1027,3 +1027,86 @@ body {
 .btn-share-link:hover {
   background: #FFFBEB;
 }
+
+/* PWA 앱 설치 유도 배너 */
+.pwa-install-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1.5px solid #FCD34D;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 6px 16px 4px;
+  box-shadow: var(--shadow-sm);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.banner-icon {
+  font-size: 1.5rem;
+}
+
+.banner-texts {
+  min-width: 0;
+}
+
+.banner-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #92400E;
+  margin-bottom: 2px;
+}
+
+.banner-desc {
+  font-size: 0.74rem;
+  color: #B45309;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.banner-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.btn-banner-install {
+  background: #92400E;
+  color: #FFFFFF;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.1s;
+}
+
+.btn-banner-install:active {
+  transform: scale(0.96);
+}
+
+.btn-banner-close {
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  color: #B45309;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}

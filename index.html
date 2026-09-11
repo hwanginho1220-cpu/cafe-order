@@ -52,6 +52,21 @@
       </button>
     </div>
 
+    <!-- PWA 앱 설치 유도 배너 (미설치 기기에서 표시) -->
+    <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
+      <div class="banner-left">
+        <span class="banner-icon">📲</span>
+        <div class="banner-texts">
+          <div class="banner-title">홈 화면에 앱으로 설치하기</div>
+          <div class="banner-desc">주소창 없이 진짜 앱처럼 1초 만에 바로 열립니다!</div>
+        </div>
+      </div>
+      <div class="banner-right">
+        <button type="button" id="btnDoInstall" class="btn-banner-install">설치</button>
+        <button type="button" id="btnDismissInstall" class="btn-banner-close" title="닫기">✕</button>
+      </div>
+    </div>
+
     <!-- 탭 네비게이션 버튼 -->
     <nav class="nav-tabs">
       <button type="button" class="nav-tab-btn active" data-tab="counter">
@@ -197,6 +212,15 @@
       <div class="manage-card">
         <div class="card-title">📋 현재 카페 등록 메뉴 목록</div>
         <div id="menuManageList" style="margin-top: 8px;"></div>
+      </div>
+
+      <!-- 4-2. 앱 설치하기 카드 -->
+      <div class="manage-card" id="cardInstallPwa">
+        <div class="card-title">📲 스마트폰 홈 화면에 앱 설치</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">바탕화면에 앱 아이콘을 만들어 주소창 없이 1초 만에 실행하세요.</div>
+        <button type="button" id="btnManageInstall" class="btn-secondary" style="background:#FEF3C7; color:#92400E; border-color:#FCD34D;">
+          <span>📲</span> <span>홈 화면에 앱 설치하기</span>
+        </button>
       </div>
 
       <!-- 5. 기본값 초기화 -->
