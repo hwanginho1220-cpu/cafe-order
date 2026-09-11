@@ -47,6 +47,9 @@
         <span>👤</span> <span>내 이름:</span>
       </div>
       <input type="text" id="userNicknameInput" class="nickname-input" placeholder="이름 입력 (예: 김철수)">
+      <div id="myOrderSummaryTag" class="my-order-summary-tag" style="display: none;" title="내가 담은 주문서 보기">
+        <span id="myOrderSummaryText">내 주문 0잔</span>
+      </div>
       <button type="button" id="btnStartNewOrder" class="btn-new-order" title="새로운 주문 시작하기 (모든 기기 주문 초기화)">
         <span>🔄</span> <span>새 주문</span>
       </button>
@@ -278,25 +281,44 @@
       <div class="modal-header">
         <div class="modal-title">
           <span>📋</span>
-          <span>현장 주문서 요약</span>
+          <span>주문서 및 취합 관리</span>
         </div>
         <button type="button" class="btn-close-modal" id="btnCloseModal">✕</button>
       </div>
 
-      <!-- 큼직한 카운터 전용 목록 (알바생/키오스크 앞에서 보기 편함) -->
-      <div class="counter-order-box">
-        <div class="counter-title-tag">
-          <span>📢</span>
-          <span>카운터 주문 시 한눈에 확인하세요!</span>
-        </div>
-        <div id="modalCounterList">
+      <!-- 뷰 전환 탭 (주문자별 관리 vs 카운터 메뉴별 취합) -->
+      <div class="sheet-tabs">
+        <button type="button" class="btn-sheet-tab active" id="tabBtnPersonOrders">
+          <span>👥</span> <span>주문자별 수정/삭제</span>
+        </button>
+        <button type="button" class="btn-sheet-tab" id="tabBtnCounterSummary">
+          <span>☕</span> <span>카운터 메뉴별 취합</span>
+        </button>
+      </div>
+
+      <!-- 뷰 1: 주문자별 그룹 목록 (개별 수정/삭제) -->
+      <div id="modalPersonView" class="modal-view-panel active">
+        <div id="modalPersonList">
           <!-- JS 렌더링 -->
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-weight: 800;">
+      <!-- 뷰 2: 큼직한 카운터 전용 목록 (알바생/키오스크 앞에서 보기 편함) -->
+      <div id="modalCounterView" class="modal-view-panel">
+        <div class="counter-order-box">
+          <div class="counter-title-tag">
+            <span>📢</span>
+            <span>카운터 주문 시 한눈에 확인하세요! (터치 시 체크/취소선)</span>
+          </div>
+          <div id="modalCounterList">
+            <!-- JS 렌더링 -->
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-weight: 800; background: #F8FAFC; border-radius: 12px; margin-top: 12px; border: 1px solid var(--border-color);">
         <span id="modalTotalCount" style="color: var(--primary); font-size: 1.1rem;">총 0잔</span>
-        <span id="modalTotalPrice" style="font-size: 1.25rem;">0원</span>
+        <span id="modalTotalPrice" style="font-size: 1.25rem; color: #1E293B;">0원</span>
       </div>
 
       <!-- 1/N 정산기 -->
@@ -325,11 +347,66 @@
         </button>
         <button type="button" id="btnModalClearOrders" class="btn-modal-clear" title="주문 전체 비우고 새 주문 시작">
           <span>🗑️</span>
-          <span>주문 비우기</span>
+          <span>전체 비우기</span>
         </button>
         <button type="button" id="btnCloseSheet" class="btn-close-sheet">닫기</button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ==================== 주문 수정 상세 팝업 모달 ==================== -->
+  <div class="modal-overlay" id="orderEditModal" style="z-index: 110;">
+    <div class="modal-sheet modal-sheet-small">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>✏️</span>
+          <span>주문 상세 수정</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseEditModal">✕</button>
+      </div>
+
+      <div class="edit-modal-body">
+        <div class="edit-form-group">
+          <label class="edit-form-label">음료 메뉴</label>
+          <div id="editMenuNameDisplay" class="edit-menu-name-tag">아메리카노</div>
+        </div>
+
+        <div class="edit-form-group">
+          <label class="edit-form-label" for="editPersonInput">주문자 이름</label>
+          <input type="text" id="editPersonInput" class="edit-text-input" placeholder="이름 입력 (예: 김철수)">
+        </div>
+
+        <div class="edit-form-group" id="editTempGroup">
+          <label class="edit-form-label">온도 선택</label>
+          <div class="edit-temp-toggle">
+            <button type="button" id="btnEditTempIce" class="btn-temp-option ice active">ICE</button>
+            <button type="button" id="btnEditTempHot" class="btn-temp-option hot">HOT</button>
+          </div>
+        </div>
+
+        <div class="edit-form-group">
+          <label class="edit-form-label">옵션</label>
+          <label class="edit-checkbox-label">
+            <input type="checkbox" id="editMildCheckbox">
+            <span>🌱 연하게 (샷 조절)</span>
+          </label>
+        </div>
+
+        <div class="edit-form-group">
+          <label class="edit-form-label">수량</label>
+          <div class="edit-qty-stepper">
+            <button type="button" id="btnEditQtyMinus" class="btn-step btn-minus">−</button>
+            <span id="editQtyVal" class="qty-val nonzero">1</span>
+            <button type="button" id="btnEditQtyPlus" class="btn-step btn-plus">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="edit-modal-actions">
+        <button type="button" id="btnSaveEditOrder" class="btn-save-edit">수정 완료</button>
+        <button type="button" id="btnCancelEditOrder" class="btn-cancel-edit">취소</button>
+      </div>
     </div>
   </div>
 

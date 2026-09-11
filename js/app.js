@@ -112,6 +112,31 @@ class App {
     this.btnStaleDismiss = document.getElementById("btnStaleDismiss");
     this.staleOrderBannerText = document.getElementById("staleOrderBannerText");
 
+    // 내 주문 뱃지 및 시트 탭 & 뷰
+    this.myOrderSummaryTag = document.getElementById("myOrderSummaryTag");
+    this.myOrderSummaryText = document.getElementById("myOrderSummaryText");
+    this.tabBtnPersonOrders = document.getElementById("tabBtnPersonOrders");
+    this.tabBtnCounterSummary = document.getElementById("tabBtnCounterSummary");
+    this.modalPersonView = document.getElementById("modalPersonView");
+    this.modalCounterView = document.getElementById("modalCounterView");
+    this.modalPersonList = document.getElementById("modalPersonList");
+    this.activeSheetTab = "person";
+
+    // 상세 수정 모달 요소
+    this.orderEditModal = document.getElementById("orderEditModal");
+    this.btnCloseEditModal = document.getElementById("btnCloseEditModal");
+    this.btnCancelEditOrder = document.getElementById("btnCancelEditOrder");
+    this.btnSaveEditOrder = document.getElementById("btnSaveEditOrder");
+    this.editMenuNameDisplay = document.getElementById("editMenuNameDisplay");
+    this.editPersonInput = document.getElementById("editPersonInput");
+    this.btnEditTempIce = document.getElementById("btnEditTempIce");
+    this.btnEditTempHot = document.getElementById("btnEditTempHot");
+    this.editMildCheckbox = document.getElementById("editMildCheckbox");
+    this.btnEditQtyMinus = document.getElementById("btnEditQtyMinus");
+    this.btnEditQtyPlus = document.getElementById("btnEditQtyPlus");
+    this.editQtyVal = document.getElementById("editQtyVal");
+    this._editingOrder = null;
+
     // PWA 앱 설치 요소
     this.pwaInstallBanner = document.getElementById("pwaInstallBanner");
     this.btnDoInstall = document.getElementById("btnDoInstall");
@@ -195,7 +220,7 @@ class App {
 
         // 모달이 열려있다면 주문서 내용도 실시간으로 갱신
         if (this.orderModal && this.orderModal.classList.contains("active")) {
-          this.renderModalCounterList();
+          this.renderOrderSheetContent();
         }
 
         // 이전 세션 주문(2시간 이상 경과) 감지 배너
@@ -290,10 +315,22 @@ class App {
   }
 
   initEvents() {
-    // 닉네임 저장 이벤트
+    // 닉네임 저장 및 실시간 화면 갱신
     if (this.userNicknameInput) {
       this.userNicknameInput.addEventListener("input", () => {
-        localStorage.setItem("my_order_nickname", this.userNicknameInput.value.trim());
+        const newName = this.userNicknameInput.value.trim();
+        localStorage.setItem("my_order_nickname", newName);
+        this.updateOrRenderMenuList();
+        this.updateMyOrderBadge();
+        if (this.orderModal && this.orderModal.classList.contains("active")) {
+          this.renderOrderSheetContent();
+        }
+      });
+    }
+
+    if (this.myOrderSummaryTag) {
+      this.myOrderSummaryTag.addEventListener("click", () => {
+        this.openOrderModal();
       });
     }
 
@@ -386,6 +423,68 @@ class App {
     this.orderModal.addEventListener("click", (e) => {
       if (e.target === this.orderModal) this.closeOrderModal();
     });
+
+    // 주문서 시트 내부 탭 전환 (주문자별 vs 카운터 취합)
+    if (this.tabBtnPersonOrders && this.tabBtnCounterSummary) {
+      this.tabBtnPersonOrders.addEventListener("click", () => {
+        this.activeSheetTab = "person";
+        this.tabBtnPersonOrders.classList.add("active");
+        this.tabBtnCounterSummary.classList.remove("active");
+        if (this.modalPersonView) this.modalPersonView.classList.add("active");
+        if (this.modalCounterView) this.modalCounterView.classList.remove("active");
+        this.renderOrderSheetContent();
+      });
+      this.tabBtnCounterSummary.addEventListener("click", () => {
+        this.activeSheetTab = "counter";
+        this.tabBtnCounterSummary.classList.add("active");
+        this.tabBtnPersonOrders.classList.remove("active");
+        if (this.modalCounterView) this.modalCounterView.classList.add("active");
+        if (this.modalPersonView) this.modalPersonView.classList.remove("active");
+        this.renderOrderSheetContent();
+      });
+    }
+
+    // 상세 수정 모달 이벤트
+    if (this.btnCloseEditModal) {
+      this.btnCloseEditModal.addEventListener("click", () => this.closeEditModal());
+    }
+    if (this.btnCancelEditOrder) {
+      this.btnCancelEditOrder.addEventListener("click", () => this.closeEditModal());
+    }
+    if (this.btnSaveEditOrder) {
+      this.btnSaveEditOrder.addEventListener("click", () => this.saveEditItem());
+    }
+    if (this.orderEditModal) {
+      this.orderEditModal.addEventListener("click", (e) => {
+        if (e.target === this.orderEditModal) this.closeEditModal();
+      });
+    }
+    if (this.btnEditTempIce && this.btnEditTempHot) {
+      this.btnEditTempIce.addEventListener("click", () => {
+        this.btnEditTempIce.classList.add("active");
+        this.btnEditTempHot.classList.remove("active");
+      });
+      this.btnEditTempHot.addEventListener("click", () => {
+        this.btnEditTempHot.classList.add("active");
+        this.btnEditTempIce.classList.remove("active");
+      });
+    }
+    if (this.btnEditQtyMinus && this.editQtyVal) {
+      this.btnEditQtyMinus.addEventListener("click", () => {
+        let q = parseInt(this.editQtyVal.textContent, 10) || 1;
+        if (q > 1) {
+          q -= 1;
+          this.editQtyVal.textContent = q;
+        }
+      });
+    }
+    if (this.btnEditQtyPlus && this.editQtyVal) {
+      this.btnEditQtyPlus.addEventListener("click", () => {
+        let q = parseInt(this.editQtyVal.textContent, 10) || 1;
+        q += 1;
+        this.editQtyVal.textContent = q;
+      });
+    }
 
     // 카톡 텍스트 복사
     this.btnCopyKakao.addEventListener("click", () => this.copyKakaoSummary());
@@ -544,50 +643,67 @@ class App {
     let currentTemp = menu.temp === "hot" ? "HOT" : "ICE";
     let isMild = false;
 
-    // 기존 주문 내역을 스캔하여 기본 선택 온도 및 연하게 상태 자동 세팅
-    const existingOrders = Array.from(this.orderMap.values()).filter(o => o.menuName === menu.name && o.qty > 0);
-    if (existingOrders.length > 0) {
-      if (menu.temp === "both") {
-        const hasIce = existingOrders.some(o => o.temp === "ICE");
-        const hasHot = existingOrders.some(o => o.temp === "HOT");
-        if (!hasIce && hasHot) currentTemp = "HOT";
-      }
-      const allMild = existingOrders.every(o => (o.options || []).includes("연하게"));
-      if (allMild) isMild = true;
+    const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
+    // 현재 사용자가 이전에 선택한 주문이 있다면 그 온도를 우선 반영, 없으면 ICE 기본
+    const myOrders = Array.from(this.orderMap.values()).filter(o => o.menuName === menu.name && o.personMap && o.personMap[myName] > 0);
+    if (myOrders.length > 0) {
+      currentTemp = myOrders[0].temp;
+      isMild = (myOrders[0].options || []).includes("연하게");
     }
 
     const getOrderKey = () => `${menu.name}_${currentTemp}${isMild ? '_연하게' : ''}`;
-    const getCurrentQty = () => {
+    
+    // 현재 주문자(내 이름)가 담은 수량 반환
+    const getMyQty = () => {
+      const curName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
       const item = this.orderMap.get(getOrderKey());
-      return item ? item.qty : 0;
+      if (!item || item.qty <= 0) return 0;
+      if (item.personMap && item.personMap[curName] !== undefined) {
+        return item.personMap[curName] || 0;
+      }
+      if (curName === "익명" && (!item.personMap || Object.keys(item.personMap).length === 0)) {
+        return item.qty;
+      }
+      return 0;
     };
 
     const updateCardState = () => {
-      const currentQty = getCurrentQty();
+      const curName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
+      const myQty = getMyQty();
       let totalMenuQty = 0;
+      let myMenuTotal = 0;
       const variations = [];
 
       for (const item of this.orderMap.values()) {
         if (item.menuName === menu.name && item.qty > 0) {
           totalMenuQty += item.qty;
-          const optText = (item.options || []).includes("연하게") ? "연하게" : "";
-          const desc = `${item.temp}${optText ? `(${optText})` : ''} ${item.qty}잔`;
-          variations.push(desc);
+          if (item.personMap && item.personMap[curName]) {
+            myMenuTotal += item.personMap[curName];
+          } else if (curName === "익명" && (!item.personMap || Object.keys(item.personMap).length === 0)) {
+            myMenuTotal += item.qty;
+          }
+          const optText = (item.options || []).includes("연하게") ? "(연하게)" : "";
+          variations.push(`${item.temp}${optText} ${item.qty}잔`);
         }
       }
 
       card.classList.toggle("has-order", totalMenuQty > 0);
+      card.classList.toggle("has-my-order", myMenuTotal > 0);
 
       const qtyEl = card.querySelector(".qty-val");
       if (qtyEl) {
-        qtyEl.textContent = currentQty;
-        qtyEl.classList.toggle("nonzero", currentQty > 0);
+        qtyEl.textContent = myQty;
+        qtyEl.classList.toggle("nonzero", myQty > 0);
       }
 
       const breakdownEl = card.querySelector(".menu-order-breakdown");
       if (breakdownEl) {
         if (totalMenuQty > 0) {
-          breakdownEl.innerHTML = `<span class="menu-order-summary-badge">총 ${totalMenuQty}잔 [${variations.join(', ')}]</span>`;
+          if (myMenuTotal > 0) {
+            breakdownEl.innerHTML = `<span class="menu-order-summary-badge has-mine">내 주문 ${myMenuTotal}잔 · 전체 ${totalMenuQty}잔 [${variations.join(', ')}]</span>`;
+          } else {
+            breakdownEl.innerHTML = `<span class="menu-order-summary-badge">전체 취합 ${totalMenuQty}잔 [${variations.join(', ')}]</span>`;
+          }
         } else {
           breakdownEl.innerHTML = "";
         }
@@ -618,7 +734,7 @@ class App {
         ` : ''}
         <div class="qty-stepper">
           <button type="button" class="btn-step btn-minus">−</button>
-          <span class="qty-val ${getCurrentQty() > 0 ? 'nonzero' : ''}">${getCurrentQty()}</span>
+          <span class="qty-val ${getMyQty() > 0 ? 'nonzero' : ''}">${getMyQty()}</span>
           <button type="button" class="btn-step btn-plus">+</button>
         </div>
       </div>
@@ -678,6 +794,7 @@ class App {
       existing.qty += 1;
       if (!existing.personMap) existing.personMap = {};
       existing.personMap[myName] = (existing.personMap[myName] || 0) + 1;
+      this.updateItemPersonsArray(existing);
       this.orderMap.set(key, existing);
       if (navigator.vibrate) navigator.vibrate(10);
       updateCardState();
@@ -689,27 +806,34 @@ class App {
       const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
       const key = getOrderKey();
       const existing = this.orderMap.get(key);
-      if (existing && existing.qty > 0) {
+      if (!existing || existing.qty <= 0) return;
+
+      if (!existing.personMap) existing.personMap = {};
+      const currentMyQty = existing.personMap[myName] || 0;
+
+      if (currentMyQty > 0) {
+        existing.personMap[myName] -= 1;
         existing.qty -= 1;
-        if (!existing.personMap) existing.personMap = {};
-        if (existing.personMap[myName] && existing.personMap[myName] > 0) {
-          existing.personMap[myName] -= 1;
-          if (existing.personMap[myName] === 0) delete existing.personMap[myName];
-        } else {
-          const firstKey = Object.keys(existing.personMap)[0];
-          if (firstKey) {
-            existing.personMap[firstKey] -= 1;
-            if (existing.personMap[firstKey] === 0) delete existing.personMap[firstKey];
-          }
+        if (existing.personMap[myName] === 0) {
+          delete existing.personMap[myName];
         }
-        if (existing.qty === 0) {
-          this.orderMap.delete(key);
-        }
-        if (navigator.vibrate) navigator.vibrate(10);
-        updateCardState();
-        this.updateBottomBar();
-        this.syncOrdersToCloud();
+      } else if (myName === "익명" && Object.keys(existing.personMap).length === 0) {
+        existing.qty -= 1;
+      } else {
+        this.showToast(`'${myName}' 님이 담은 수량이 없습니다.`);
+        return;
       }
+
+      if (existing.qty <= 0) {
+        this.orderMap.delete(key);
+      } else {
+        this.updateItemPersonsArray(existing);
+      }
+
+      if (navigator.vibrate) navigator.vibrate(10);
+      updateCardState();
+      this.updateBottomBar();
+      this.syncOrdersToCloud();
     });
 
     updateCardState();
@@ -903,6 +1027,9 @@ class App {
     this.bottomTotalCount.textContent = `총 ${totalCount}잔`;
     this.bottomTotalPrice.textContent = `${totalPrice.toLocaleString()}원`;
 
+    // 내 주문 뱃지 갱신
+    this.updateMyOrderBadge();
+
     // 1/N 정산 기본 인원수 세팅
     if (this.dutchHeadcount) {
       const currentHeadcount = parseInt(this.dutchHeadcount.value, 10) || 1;
@@ -910,50 +1037,36 @@ class App {
     }
   }
 
-  renderModalCounterList() {
-    if (!this.modalCounterList) return;
-    const activeCafe = this.cafeManager.getActiveCafe();
-    this.modalCounterList.innerHTML = "";
-
-    let totalCount = 0;
-    let totalPrice = 0;
-
+  updateMyOrderBadge() {
+    if (!this.myOrderSummaryTag || !this.myOrderSummaryText) return;
+    const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
+    let myCount = 0;
     for (const item of this.orderMap.values()) {
-      if (item.qty <= 0) continue;
-      totalCount += item.qty;
-      totalPrice += (item.price || 0) * item.qty;
-
-      const optText = item.options.length > 0 ? ` (${item.options.join(", ")})` : "";
-      const personText = item.persons && item.persons.length > 0 ? `[${item.persons.join(", ")}]` : "";
-
-      const row = document.createElement("div");
-      row.className = "counter-list-item";
-      row.title = "터치하여 주문 완료 체크";
-      row.innerHTML = `
-        <div>
-          <span class="counter-item-name">
-            <span class="badge-temp ${item.temp === 'ICE' ? 'badge-ice' : 'badge-hot'}" style="margin-right: 4px;">${item.temp}</span>
-            ${item.menuName}${optText}
-          </span>
-          ${personText ? `<div style="font-size:0.75rem; color:#64748B; margin-top:2px;">${personText}</div>` : ''}
-        </div>
-        <div class="counter-item-qty">${item.qty}잔</div>
-      `;
-      row.addEventListener("click", () => {
-        row.classList.toggle("checked");
-        if (navigator.vibrate) navigator.vibrate(12);
-      });
-      this.modalCounterList.appendChild(row);
+      if (item.personMap && item.personMap[myName]) {
+        myCount += item.personMap[myName];
+      }
     }
-
-    if (totalCount === 0) {
-      this.modalCounterList.innerHTML = `<div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:0.9rem;">담긴 주문이 없습니다.</div>`;
+    if (myCount > 0) {
+      this.myOrderSummaryText.textContent = `내 주문: ${myCount}잔`;
+      this.myOrderSummaryTag.style.display = "flex";
+    } else {
+      this.myOrderSummaryTag.style.display = "none";
     }
+  }
 
-    if (this.modalTotalCount) this.modalTotalCount.textContent = `총 ${totalCount}잔`;
-    if (this.modalTotalPrice) this.modalTotalPrice.textContent = `${totalPrice.toLocaleString()}원 (${activeCafe.name})`;
-
-    this.calculateDutchPay(totalPrice);
+  updateItemPersonsArray(item) {
+    if (!item) return;
+    const list = [];
+    if (item.personMap && Object.keys(item.personMap).length > 0) {
+      for (const [pName, pQty] of Object.entries(item.personMap)) {
+        if (pQty > 0) {
+          list.push(`${pName}${pQty > 1 ? `(${pQty})` : ''}`);
+        }
+      }
+    } else if (item.persons && item.persons.length > 0) {
+      list.push(...item.persons);
+    }
+    item.persons = list;
   }
 
   openOrderModal() {
@@ -961,12 +1074,453 @@ class App {
       this.showToast("아직 담은 음료가 없습니다!");
       return;
     }
-    this.renderModalCounterList();
+    this.renderOrderSheetContent();
     this.orderModal.classList.add("active");
   }
 
   closeOrderModal() {
     this.orderModal.classList.remove("active");
+  }
+
+  renderOrderSheetContent() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    let totalCount = 0;
+    let totalPrice = 0;
+
+    for (const item of this.orderMap.values()) {
+      totalCount += item.qty;
+      totalPrice += (item.price || 0) * item.qty;
+    }
+
+    this.renderModalPersonList();
+    this.renderModalCounterList();
+
+    if (this.modalTotalCount) this.modalTotalCount.textContent = `총 ${totalCount}잔`;
+    if (this.modalTotalPrice) this.modalTotalPrice.textContent = `${totalPrice.toLocaleString()}원 (${activeCafe.name})`;
+
+    this.calculateDutchPay(totalPrice);
+  }
+
+  // 주문자별 그룹 목록 (개별 수정/삭제)
+  renderModalPersonList() {
+    if (!this.modalPersonList) return;
+    this.modalPersonList.innerHTML = "";
+
+    const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
+    const personMapData = {};
+
+    for (const [key, item] of this.orderMap.entries()) {
+      if (item.qty <= 0) continue;
+      if (item.personMap && Object.keys(item.personMap).length > 0) {
+        for (const [pName, pQty] of Object.entries(item.personMap)) {
+          if (pQty > 0) {
+            if (!personMapData[pName]) personMapData[pName] = [];
+            personMapData[pName].push({
+              key,
+              menuName: item.menuName,
+              temp: item.temp,
+              options: item.options || [],
+              price: item.price || 0,
+              qty: pQty
+            });
+          }
+        }
+      } else {
+        const pName = (item.persons && item.persons[0]) || "익명";
+        if (!personMapData[pName]) personMapData[pName] = [];
+        personMapData[pName].push({
+          key,
+          menuName: item.menuName,
+          temp: item.temp,
+          options: item.options || [],
+          price: item.price || 0,
+          qty: item.qty
+        });
+      }
+    }
+
+    const personNames = Object.keys(personMapData);
+    if (personNames.length === 0) {
+      this.modalPersonList.innerHTML = `<div style="text-align:center; padding:32px 10px; color:var(--text-muted); font-size:0.92rem;">담긴 주문이 없습니다.</div>`;
+      return;
+    }
+
+    // 내 이름 최상단 정렬, 그 외 가나다순
+    personNames.sort((a, b) => {
+      if (a === myName) return -1;
+      if (b === myName) return 1;
+      return a.localeCompare(b);
+    });
+
+    personNames.forEach(pName => {
+      const items = personMapData[pName];
+      let pTotalQty = 0;
+      let pTotalPrice = 0;
+      items.forEach(it => {
+        pTotalQty += it.qty;
+        pTotalPrice += it.price * it.qty;
+      });
+
+      const groupCard = document.createElement("div");
+      groupCard.className = "person-group-card";
+
+      const isMe = pName === myName;
+      groupCard.innerHTML = `
+        <div class="person-group-header">
+          <div class="person-group-title">
+            <span class="person-name-badge ${isMe ? 'is-me' : ''}">👤 ${pName}</span>
+            <span class="person-group-subtotal">총 ${pTotalQty}잔 · ${pTotalPrice.toLocaleString()}원</span>
+          </div>
+          <button type="button" class="btn-clear-person" title="${pName}님의 주문 전체 삭제">✕ 주문 취소</button>
+        </div>
+        <div class="person-item-list"></div>
+      `;
+
+      // 해당 주문자 전체 삭제 이벤트
+      const btnClearPerson = groupCard.querySelector(".btn-clear-person");
+      btnClearPerson.addEventListener("click", () => {
+        if (confirm(`'${pName}' 님의 주문 (${pTotalQty}잔) 전체를 취소하시겠습니까?`)) {
+          this.deletePersonAllOrders(pName);
+        }
+      });
+
+      const listEl = groupCard.querySelector(".person-item-list");
+
+      items.forEach(it => {
+        const row = document.createElement("div");
+        row.className = "person-item-row";
+
+        const optText = it.options.length > 0 ? ` (${it.options.join(", ")})` : "";
+        row.innerHTML = `
+          <div class="person-item-details">
+            <span class="badge-temp ${it.temp === 'ICE' ? 'badge-ice' : 'badge-hot'}">${it.temp}</span>
+            <span class="person-item-title">${it.menuName}</span>
+            ${optText ? `<span class="person-item-opt">${optText}</span>` : ''}
+            <span class="person-item-price">${(it.price * it.qty).toLocaleString()}원</span>
+          </div>
+          <div class="person-item-controls">
+            <div class="person-item-stepper">
+              <button type="button" class="btn-item-step minus" title="1잔 줄이기">−</button>
+              <span class="person-item-qty">${it.qty}</span>
+              <button type="button" class="btn-item-step plus" title="1잔 늘리기">+</button>
+            </div>
+            <button type="button" class="btn-action-icon edit" title="옵션/이름 수정">✏️</button>
+            <button type="button" class="btn-action-icon delete" title="이 메뉴 삭제">🗑️</button>
+          </div>
+        `;
+
+        // - 버튼
+        row.querySelector(".btn-item-step.minus").addEventListener("click", () => {
+          this.changePersonItemQty(pName, it.key, -1);
+        });
+
+        // + 버튼
+        row.querySelector(".btn-item-step.plus").addEventListener("click", () => {
+          this.changePersonItemQty(pName, it.key, 1);
+        });
+
+        // ✏️ 수정 버튼
+        row.querySelector(".btn-action-icon.edit").addEventListener("click", () => {
+          this.openEditModal(pName, it);
+        });
+
+        // 🗑️ 삭제 버튼
+        row.querySelector(".btn-action-icon.delete").addEventListener("click", () => {
+          if (confirm(`'${pName}' 님의 '${it.menuName}' 주문을 삭제하시겠습니까?`)) {
+            this.deletePersonItem(pName, it.key);
+          }
+        });
+
+        listEl.appendChild(row);
+      });
+
+      this.modalPersonList.appendChild(groupCard);
+    });
+  }
+
+  // 메뉴별 취합 카운터 목록 (카운터 주문용 체크리스트 & 빠른 조절)
+  renderModalCounterList() {
+    if (!this.modalCounterList) return;
+    this.modalCounterList.innerHTML = "";
+
+    let totalCount = 0;
+
+    for (const [key, item] of this.orderMap.entries()) {
+      if (item.qty <= 0) continue;
+      totalCount += item.qty;
+
+      const optText = item.options.length > 0 ? ` (${item.options.join(", ")})` : "";
+      const personText = item.persons && item.persons.length > 0 ? `[${item.persons.join(", ")}]` : "";
+
+      const row = document.createElement("div");
+      row.className = "counter-list-item";
+      row.innerHTML = `
+        <div class="counter-item-left" style="cursor: pointer;" title="터치하여 주문 완료 체크/취소선">
+          <span class="counter-item-name">
+            <span class="badge-temp ${item.temp === 'ICE' ? 'badge-ice' : 'badge-hot'}" style="margin-right: 4px;">${item.temp}</span>
+            ${item.menuName}${optText}
+          </span>
+          ${personText ? `<div class="counter-item-persons">${personText}</div>` : ''}
+        </div>
+        <div class="counter-item-right">
+          <div class="counter-quick-actions">
+            <button type="button" class="btn-counter-step minus" title="1잔 빼기">−</button>
+            <span class="counter-item-qty">${item.qty}잔</span>
+            <button type="button" class="btn-counter-step plus" title="1잔 더하기">+</button>
+            <button type="button" class="btn-counter-delete" title="이 메뉴 전체 삭제">🗑️</button>
+          </div>
+        </div>
+      `;
+
+      // 왼쪽 터치 시 체크 표시 토글
+      row.querySelector(".counter-item-left").addEventListener("click", () => {
+        row.classList.toggle("checked");
+        if (navigator.vibrate) navigator.vibrate(12);
+      });
+
+      // - 버튼
+      row.querySelector(".btn-counter-step.minus").addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.adjustMenuTotalQty(key, -1);
+      });
+
+      // + 버튼
+      row.querySelector(".btn-counter-step.plus").addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.adjustMenuTotalQty(key, 1);
+      });
+
+      // 🗑️ 메뉴 전체 삭제 버튼
+      row.querySelector(".btn-counter-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm(`'${item.menuName}' (${item.qty}잔) 항목 전체를 삭제하시겠습니까?`)) {
+          this.deleteMenuEntirely(key);
+        }
+      });
+
+      this.modalCounterList.appendChild(row);
+    }
+
+    if (totalCount === 0) {
+      this.modalCounterList.innerHTML = `<div style="text-align:center; padding:24px 10px; color:var(--text-muted); font-size:0.9rem;">담긴 주문이 없습니다.</div>`;
+    }
+  }
+
+  // --- 주문 수정 및 삭제 처리 메소드 ---
+
+  // 1. 특정 주문자의 특정 메뉴 수량 변경 (+/-)
+  changePersonItemQty(personName, key, delta) {
+    const item = this.orderMap.get(key);
+    if (!item) return;
+
+    if (!item.personMap) item.personMap = {};
+    const currentQty = item.personMap[personName] || 0;
+    const newQty = currentQty + delta;
+
+    if (newQty <= 0) {
+      delete item.personMap[personName];
+      item.qty += delta;
+    } else {
+      item.personMap[personName] = newQty;
+      item.qty += delta;
+    }
+
+    if (item.qty <= 0) {
+      this.orderMap.delete(key);
+    } else {
+      this.updateItemPersonsArray(item);
+    }
+
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
+  }
+
+  // 2. 특정 주문자의 특정 메뉴 삭제
+  deletePersonItem(personName, key) {
+    const item = this.orderMap.get(key);
+    if (!item) return;
+
+    const qtyToRemove = (item.personMap && item.personMap[personName]) || 0;
+    item.qty -= qtyToRemove;
+    if (item.personMap) delete item.personMap[personName];
+
+    if (item.qty <= 0) {
+      this.orderMap.delete(key);
+    } else {
+      this.updateItemPersonsArray(item);
+    }
+
+    this.showToast(`'${personName}' 님의 '${item.menuName}' 주문이 삭제되었습니다.`);
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
+  }
+
+  // 3. 특정 주문자의 모든 주문 취소
+  deletePersonAllOrders(personName) {
+    let removedCount = 0;
+    for (const [key, item] of Array.from(this.orderMap.entries())) {
+      if (item.personMap && item.personMap[personName]) {
+        const q = item.personMap[personName];
+        item.qty -= q;
+        removedCount += q;
+        delete item.personMap[personName];
+        if (item.qty <= 0) {
+          this.orderMap.delete(key);
+        } else {
+          this.updateItemPersonsArray(item);
+        }
+      }
+    }
+
+    this.showToast(`'${personName}' 님의 주문 (${removedCount}잔)이 전체 취소되었습니다.`);
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
+  }
+
+  // 4. 메뉴 전체 수량 조절 (카운터 뷰에서 사용)
+  adjustMenuTotalQty(key, delta) {
+    const item = this.orderMap.get(key);
+    if (!item) return;
+
+    if (delta > 0) {
+      item.qty += 1;
+      const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "카운터";
+      if (!item.personMap) item.personMap = {};
+      item.personMap[myName] = (item.personMap[myName] || 0) + 1;
+    } else {
+      if (item.qty > 0) {
+        item.qty -= 1;
+        if (item.personMap) {
+          const keys = Object.keys(item.personMap);
+          if (keys.length > 0) {
+            const first = keys[0];
+            item.personMap[first] -= 1;
+            if (item.personMap[first] <= 0) delete item.personMap[first];
+          }
+        }
+      }
+    }
+
+    if (item.qty <= 0) {
+      this.orderMap.delete(key);
+    } else {
+      this.updateItemPersonsArray(item);
+    }
+
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
+  }
+
+  // 5. 메뉴 전체 삭제
+  deleteMenuEntirely(key) {
+    const item = this.orderMap.get(key);
+    if (!item) return;
+    this.orderMap.delete(key);
+    this.showToast(`'${item.menuName}' 항목이 삭제되었습니다.`);
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
+  }
+
+  // --- 상세 수정 모달 관리 ---
+  openEditModal(personName, itemData) {
+    this._editingOrder = {
+      oldPerson: personName,
+      oldKey: itemData.key,
+      menuName: itemData.menuName,
+      price: itemData.price,
+      temp: itemData.temp,
+      isMild: (itemData.options || []).includes("연하게"),
+      qty: itemData.qty
+    };
+
+    if (this.editMenuNameDisplay) this.editMenuNameDisplay.textContent = itemData.menuName;
+    if (this.editPersonInput) this.editPersonInput.value = personName;
+
+    // 온도 버튼 세팅
+    if (this.btnEditTempIce && this.btnEditTempHot) {
+      this.btnEditTempIce.classList.toggle("active", itemData.temp === "ICE");
+      this.btnEditTempHot.classList.toggle("active", itemData.temp === "HOT");
+    }
+
+    // 연하게 체크박스 세팅
+    if (this.editMildCheckbox) {
+      this.editMildCheckbox.checked = (itemData.options || []).includes("연하게");
+    }
+
+    // 수량 세팅
+    if (this.editQtyVal) {
+      this.editQtyVal.textContent = itemData.qty;
+    }
+
+    if (this.orderEditModal) {
+      this.orderEditModal.classList.add("active");
+    }
+  }
+
+  closeEditModal() {
+    if (this.orderEditModal) {
+      this.orderEditModal.classList.remove("active");
+    }
+    this._editingOrder = null;
+  }
+
+  saveEditItem() {
+    if (!this._editingOrder) return;
+
+    const newPerson = (this.editPersonInput ? this.editPersonInput.value.trim() : "") || "익명";
+    const newTemp = this.btnEditTempIce && this.btnEditTempIce.classList.contains("active") ? "ICE" : "HOT";
+    const newMild = this.editMildCheckbox ? this.editMildCheckbox.checked : false;
+    const newQty = parseInt(this.editQtyVal ? this.editQtyVal.textContent : "1", 10) || 1;
+
+    // 1. 기존 주문에서 해당 주문자의 해당 수량 제거
+    const oldItem = this.orderMap.get(this._editingOrder.oldKey);
+    if (oldItem) {
+      const oldQty = (oldItem.personMap && oldItem.personMap[this._editingOrder.oldPerson]) || this._editingOrder.qty;
+      oldItem.qty -= oldQty;
+      if (oldItem.personMap) delete oldItem.personMap[this._editingOrder.oldPerson];
+      if (oldItem.qty <= 0) {
+        this.orderMap.delete(this._editingOrder.oldKey);
+      } else {
+        this.updateItemPersonsArray(oldItem);
+      }
+    }
+
+    // 2. 새로운 옵션 및 이름으로 주문 생성/합산
+    const optList = newMild ? ["연하게"] : [];
+    const newKey = `${this._editingOrder.menuName}_${newTemp}${newMild ? '_연하게' : ''}`;
+
+    const targetItem = this.orderMap.get(newKey) || {
+      menuName: this._editingOrder.menuName,
+      temp: newTemp,
+      price: this._editingOrder.price,
+      qty: 0,
+      options: optList,
+      persons: [],
+      personMap: {}
+    };
+
+    targetItem.qty += newQty;
+    if (!targetItem.personMap) targetItem.personMap = {};
+    targetItem.personMap[newPerson] = (targetItem.personMap[newPerson] || 0) + newQty;
+    this.updateItemPersonsArray(targetItem);
+    this.orderMap.set(newKey, targetItem);
+
+    this.closeEditModal();
+    this.showToast("주문 내역이 수정되었습니다! ✨");
+    this.updateBottomBar();
+    this.updateOrRenderMenuList();
+    this.renderOrderSheetContent();
+    this.syncOrdersToCloud();
   }
 
   async clearAllOrders(showConfirm = true) {

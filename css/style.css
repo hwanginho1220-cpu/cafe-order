@@ -1346,3 +1346,458 @@ body {
   padding: 4px;
   line-height: 1;
 }
+
+/* ============================================================
+   주문 관리 & 주문자별 수정/삭제 & 수정 팝업 스타일
+   ============================================================ */
+
+/* 닉네임 바 내 주문 배지 */
+.my-order-summary-tag {
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.my-order-summary-tag:hover {
+  background: #E0E7FF;
+  transform: translateY(-1px);
+}
+
+/* 메뉴 카드 내 주문 상태 하이라이트 */
+.menu-card.has-my-order {
+  border-color: #6366F1 !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12) !important;
+}
+.menu-order-summary-badge.has-mine {
+  background: #EEF2FF !important;
+  color: #4338CA !important;
+  border: 1px solid #C7D2FE !important;
+  font-weight: 700 !important;
+}
+
+/* 주문서 시트 뷰 전환 탭 */
+.sheet-tabs {
+  display: flex;
+  gap: 6px;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.btn-sheet-tab {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.btn-sheet-tab.active {
+  background: #FFFFFF;
+  color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.modal-view-panel {
+  display: none;
+}
+
+.modal-view-panel.active {
+  display: block;
+}
+
+/* 주문자별 그룹 카드 */
+.person-group-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.person-group-header {
+  background: #F8FAFC;
+  padding: 9px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.person-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.person-name-badge {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.person-name-badge.is-me {
+  color: #4F46E5;
+}
+
+.person-name-badge.is-me::after {
+  content: "나";
+  font-size: 0.7rem;
+  background: #4F46E5;
+  color: #FFFFFF;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+.person-group-subtotal {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-clear-person {
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn-clear-person:hover {
+  background: #FCA5A5;
+}
+
+.person-item-list {
+  padding: 4px 12px;
+}
+
+.person-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 2px;
+  border-bottom: 1px dashed #E2E8F0;
+  gap: 8px;
+}
+
+.person-item-row:last-child {
+  border-bottom: none;
+}
+
+.person-item-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.person-item-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-item-opt {
+  font-size: 0.75rem;
+  color: #059669;
+  font-weight: 600;
+}
+
+.person-item-price {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  padding-right: 4px;
+}
+
+.person-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.person-item-stepper {
+  display: flex;
+  align-items: center;
+  background: #F1F5F9;
+  border-radius: 8px;
+  padding: 2px 4px;
+  gap: 4px;
+}
+
+.btn-item-step {
+  width: 26px;
+  height: 26px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #334155;
+  transition: background 0.1s;
+}
+
+.btn-item-step:active {
+  background: #E2E8F0;
+}
+
+.person-item-qty {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--primary);
+  min-width: 18px;
+  text-align: center;
+}
+
+.btn-action-icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  transition: all 0.15s;
+}
+
+.btn-action-icon.edit:hover {
+  background: #EEF2FF;
+  border-color: #C7D2FE;
+}
+
+.btn-action-icon.delete:hover {
+  background: #FEE2E2;
+  border-color: #FECACA;
+}
+
+/* 카운터 취합 행 빠른 액션 버튼 */
+.counter-item-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.counter-item-persons {
+  font-size: 0.74rem;
+  color: #64748B;
+  margin-top: 3px;
+}
+
+.counter-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.counter-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-counter-step {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #B45309;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.btn-counter-step:active {
+  background: #FDE68A;
+}
+
+.btn-counter-delete {
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.btn-counter-delete:hover {
+  opacity: 1;
+}
+
+/* 상세 수정 모달 스타일 */
+.modal-sheet-small {
+  max-width: 380px;
+  border-radius: 20px;
+  margin-bottom: auto;
+  margin-top: auto;
+}
+
+.edit-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 0 16px 0;
+}
+
+.edit-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-form-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.edit-menu-name-tag {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0F172A;
+  background: #F1F5F9;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+.edit-text-input {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: border-color 0.2s;
+}
+
+.edit-text-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.edit-temp-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-temp-option {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: #FFFFFF;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-temp-option.ice.active {
+  background: #0284C7;
+  color: #FFFFFF;
+  border-color: #0284C7;
+}
+
+.btn-temp-option.hot.active {
+  background: #DC2626;
+  color: #FFFFFF;
+  border-color: #DC2626;
+}
+
+.edit-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.edit-qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.edit-modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-save-edit {
+  flex: 1;
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-save-edit:hover {
+  opacity: 0.95;
+}
+
+.btn-cancel-edit {
+  background: #F1F5F9;
+  color: var(--text-main);
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
