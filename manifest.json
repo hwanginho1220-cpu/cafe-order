@@ -1,0 +1,16 @@
+{
+  "name": "모두의 음료 - 단체 음료 주문 취합기",
+  "short_name": "모두의음료",
+  "description": "단체 음료 주문을 쉽고 빠르게 카운팅하고 취합하는 스마트 카운터",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#92400E",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

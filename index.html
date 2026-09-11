@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#92400E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>모두의 음료 - 단체 음료 주문 취합기</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- 메인 모바일 앱 컨테이너 -->
+  <div class="app-container">
+    
+    <!-- 상단 고정 헤더 -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-title">
+          <span>☕</span>
+          <span>모두의 음료</span>
+          <span class="brand-badge">단체 주문 도우미</span>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn-icon" id="btnHelp" title="사용 방법 안내" onclick="alert('💡 사용 안내\n\n1. [주문 카운터]: 카페를 고르고 화면의 메뉴를 터치해 간편하게 수량을 셉니다.\n2. [단톡방 복붙 집계]: 단톡방에서 보낸 주문 대화(\'김대리: 아아 2\')를 복사해 넣으면 자동으로 파싱 & 카운팅합니다.\n3. [카페/메뉴 관리]: 자주 가는 나만의 카페와 메뉴를 자유롭게 추가/수정합니다.\n4. [주문서 보기]: 카운터나 키오스크 앞에서 읽기 쉬운 큰 글씨로 요약해주며, 카톡 공유 및 1/N 정산도 지원합니다.')">❓</button>
+        </div>
+      </div>
+
+      <!-- 카페 선택 가로 스크롤 칩 바 -->
+      <div class="cafe-selector-bar" id="cafeChipsContainer">
+        <!-- JS로 동적 렌더링 (스타벅스, 메가커피, 컴포즈, 빽다방 등) -->
+      </div>
+    </header>
+
+    <!-- 탭 네비게이션 버튼 -->
+    <nav class="nav-tabs">
+      <button type="button" class="nav-tab-btn active" data-tab="counter">
+        <span>👆</span>
+        <span>주문 카운터</span>
+      </button>
+      <button type="button" class="nav-tab-btn" data-tab="parser">
+        <span>💬</span>
+        <span>단톡방 복붙 집계</span>
+      </button>
+      <button type="button" class="nav-tab-btn" data-tab="manage">
+        <span>⚙️</span>
+        <span>카페/메뉴 관리</span>
+      </button>
+    </nav>
+
+    <!-- ==================== 탭 1: 주문 카운터 ==================== -->
+    <main class="tab-content active" id="tab-counter">
+      <!-- 카테고리 필터 -->
+      <div class="category-filter-bar" id="catChipsContainer">
+        <!-- JS 동적 렌더링 -->
+      </div>
+
+      <!-- 메뉴 카드 리스트 -->
+      <div class="menu-grid" id="menuGrid">
+        <!-- JS 동적 렌더링 -->
+      </div>
+
+      <!-- 즉석 메뉴 추가 카드 -->
+      <div class="quick-add-box">
+        <input type="text" id="quickMenuName" class="input-quick" placeholder="메뉴판에 없는 음료 바로 추가">
+        <select id="quickMenuTemp" class="input-quick" style="max-width: 76px;">
+          <option value="ICE">ICE</option>
+          <option value="HOT">HOT</option>
+        </select>
+        <input type="number" id="quickMenuPrice" class="input-quick" style="max-width: 80px;" placeholder="가격(원)">
+        <button type="button" id="btnQuickAdd" class="btn-quick-add">+ 추가</button>
+      </div>
+    </main>
+
+    <!-- ==================== 탭 2: 단톡방 복붙 집계 ==================== -->
+    <section class="tab-content" id="tab-parser">
+      <div class="parser-section">
+        <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 6px;">💬 단톡방 주문 텍스트 붙여넣기</div>
+        <p class="section-hint">
+          카카오톡이나 메신저에서 사람들이 보낸 메시지를 그대로 복사해 붙여넣으세요! 줄임말(아아, 뜨라, 자허블 등)과 수량, 옵션을 똑똑하게 감지해 수량을 합산해 줍니다.
+        </p>
+
+        <!-- 예시 샘플 버튼 -->
+        <div class="sample-badge-group">
+          <span style="font-size: 0.76rem; color: var(--text-muted); align-self: center;">샘플 불러오기:</span>
+          <button type="button" class="btn-sample" data-sample="김팀장: 아아 2잔\n이과장 : 따뜻한 라떼 (연하게)\n박대리 - 아바라 1\n최사원: 자허블 덜달게\n정주임: 아아\n강인턴: 딸쿠프">☕ 직장 커피 심부름</button>
+          <button type="button" class="btn-sample" data-sample="1. 영희: 뜨아\n2. 철수: 아아 (샷추가)\n3. 민수: 아아 2잔\n4. 지수: 바크콜\n5. 현우: 돌체라떼">📋 번호 매긴 주문</button>
+        </div>
+
+        <textarea id="parseInput" class="textarea-parse" placeholder="예시)&#10;김철수: 아아 2잔&#10;이영희: 따뜻한 라떼 연하게&#10;박과장: 자허블 1&#10;최대리: 아바라"></textarea>
+
+        <button type="button" id="btnParse" class="btn-parse-action">
+          <span>⚡</span>
+          <span>스마트 자동 분석 & 카운팅</span>
+        </button>
+      </div>
+
+      <!-- 분석 결과 영역 -->
+      <div class="parse-results-box" id="parseResultContainer"></div>
+
+      <!-- 주문서 합산 버튼 -->
+      <button type="button" id="btnApplyParseToOrder" class="btn-parse-action" style="display: none; background: #059669; margin-top: 12px;">
+        <span>📥</span>
+        <span>위 결과를 현재 주문서에 모두 담기</span>
+      </button>
+    </section>
+
+    <!-- ==================== 탭 3: 카페 / 메뉴 관리 ==================== -->
+    <section class="tab-content" id="tab-manage">
+      <!-- 1. 활성 카페 선택 및 삭제 -->
+      <div class="manage-card">
+        <div class="card-title-row">
+          <span class="card-title">🏪 편집할 카페 선택</span>
+          <button type="button" id="btnDeleteCurrentCafe" style="color:#EF4444; background:none; border:none; font-size:0.82rem; cursor:pointer;">현재 카페 삭제</button>
+        </div>
+        <div class="form-group">
+          <select id="manageCafeSelect" class="form-select"></select>
+        </div>
+      </div>
+
+      <!-- 2. 새 카페 추가 -->
+      <div class="manage-card">
+        <div class="card-title">➕ 새로운 카페 등록</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">사내 카페, 단골 개인 카페 등을 추가해보세요.</div>
+        <div class="form-group">
+          <input type="text" id="newCafeName" class="form-input" placeholder="새 카페 이름 (예: 사내카페, 컴포즈 문정점)">
+        </div>
+        <button type="button" id="btnAddCustomCafe" class="btn-secondary">+ 새 카페 생성</button>
+      </div>
+
+      <!-- 3. 현재 카페 메뉴 추가 -->
+      <div class="manage-card">
+        <div class="card-title">📝 선택된 카페 메뉴 추가</div>
+        <div class="form-group">
+          <label class="form-label">메뉴 이름</label>
+          <input type="text" id="newMenuName" class="form-input" placeholder="예: 시그니처 크림라떼">
+        </div>
+        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label class="form-label">가격 (원)</label>
+            <input type="number" id="newMenuPrice" class="form-input" placeholder="4000">
+          </div>
+          <div>
+            <label class="form-label">카테고리</label>
+            <input type="text" id="newMenuCategory" class="form-input" placeholder="커피, 논커피 등">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">온도 지원</label>
+          <select id="newMenuTemp" class="form-select">
+            <option value="both">HOT / ICE 둘 다 가능</option>
+            <option value="ice">ICE 전용</option>
+            <option value="hot">HOT 전용</option>
+          </select>
+        </div>
+        <button type="button" id="btnAddCustomMenu" class="btn-secondary">+ 메뉴판에 등록</button>
+      </div>
+
+      <!-- 4. 현재 카페 메뉴 목록 관리 -->
+      <div class="manage-card">
+        <div class="card-title">📋 현재 카페 등록 메뉴 목록</div>
+        <div id="menuManageList" style="margin-top: 8px;"></div>
+      </div>
+
+      <!-- 5. 기본값 초기화 -->
+      <div style="text-align: center; padding: 12px;">
+        <button type="button" onclick="if(confirm('모든 커스텀 카페와 메뉴를 기본값으로 되돌리시겠습니까?')){ window.cafeDataManager.resetToDefaults(); location.reload(); }" style="color:var(--text-muted); background:none; border:none; font-size:0.8rem; text-decoration:underline; cursor:pointer;">
+          초기 기본 카페 목록으로 전체 리셋
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== 하단 고정 주문 요약 바 ==================== -->
+    <div class="bottom-order-bar">
+      <div class="order-summary-info">
+        <span class="order-total-count" id="bottomTotalCount">총 0잔</span>
+        <span class="order-total-price" id="bottomTotalPrice">0원</span>
+      </div>
+      <div class="order-action-group">
+        <button type="button" id="btnResetOrder" class="btn-reset-order" title="주문 비우기">🗑️</button>
+        <button type="button" id="btnOpenModal" class="btn-view-order">
+          <span>📋</span>
+          <span>주문서 보기</span>
+        </button>
+      </div>
+    </div>
+
+  </div> <!-- /app-container -->
+
+  <!-- ==================== 주문서 & 카운터 뷰 바텀시트 모달 ==================== -->
+  <div class="modal-overlay" id="orderModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📋</span>
+          <span>현장 주문서 요약</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseModal">✕</button>
+      </div>
+
+      <!-- 큼직한 카운터 전용 목록 (알바생/키오스크 앞에서 보기 편함) -->
+      <div class="counter-order-box">
+        <div class="counter-title-tag">
+          <span>📢</span>
+          <span>카운터 주문 시 한눈에 확인하세요!</span>
+        </div>
+        <div id="modalCounterList">
+          <!-- JS 렌더링 -->
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-weight: 800;">
+        <span id="modalTotalCount" style="color: var(--primary); font-size: 1.1rem;">총 0잔</span>
+        <span id="modalTotalPrice" style="font-size: 1.25rem;">0원</span>
+      </div>
+
+      <!-- 1/N 정산기 -->
+      <div class="dutch-pay-box">
+        <div class="dutch-row">
+          <span style="font-weight: 700; font-size: 0.9rem;">💸 1/N 더치페이 계산기</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <input type="number" id="dutchHeadcount" value="4" min="1" max="100" style="width: 50px; padding: 4px 6px; text-align: center; border: 1px solid var(--border-color); border-radius: 6px; font-weight: 700;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">명</span>
+          </div>
+        </div>
+        <div class="dutch-row" style="margin-bottom: 0;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">1인당 금액:</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="dutchPerPerson" style="font-size: 1.1rem; font-weight: 900; color: #059669;">0원</span>
+            <button type="button" id="btnCopyDutch" style="font-size: 0.75rem; background: #E2E8F0; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer;">정산 복사</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 액션 버튼들 -->
+      <div class="btn-modal-actions">
+        <button type="button" id="btnCopyKakao" class="btn-copy-kakaotalk">
+          <span>💬</span>
+          <span>카톡 공유 복사</span>
+        </button>
+        <button type="button" id="btnCloseSheet" class="btn-close-sheet">닫기</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 토스트 알림 팝업 -->
+  <div id="toastMsg" class="toast-msg">알림 메시지</div>
+
+  <!-- 스크립트 로드 -->
+  <script src="js/cafe-data.js"></script>
+  <script src="js/text-parser.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

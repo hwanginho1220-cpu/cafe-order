@@ -1,0 +1,758 @@
+/**
+ * app.js
+ * 모두의 음료 (Cafe Order Collector) 메인 애플리케이션 로직
+ */
+
+class App {
+  constructor() {
+    this.cafeManager = window.cafeDataManager;
+    this.textParser = window.smartOrderParser;
+
+    // 장바구니/주문 상태: key = `${menuName}_${temp}_${options.join(',')}`
+    this.orderMap = new Map(); 
+    this.activeCategory = "전체";
+    this.currentTab = "counter"; // 'counter', 'parser', 'manage'
+
+    this.initDOM();
+    this.initEvents();
+    this.renderCafeChips();
+    this.renderCategoryChips();
+    this.renderMenuList();
+    this.updateBottomBar();
+  }
+
+  initDOM() {
+    // 탭 요소
+    this.tabBtns = document.querySelectorAll(".nav-tab-btn");
+    this.tabContents = document.querySelectorAll(".tab-content");
+
+    // 카페 칩 컨테이너
+    this.cafeChipsContainer = document.getElementById("cafeChipsContainer");
+
+    // 카테고리 칩 컨테이너
+    this.catChipsContainer = document.getElementById("catChipsContainer");
+
+    // 메뉴 그리드
+    this.menuGrid = document.getElementById("menuGrid");
+
+    // 즉석 추가 인풋
+    this.quickNameInput = document.getElementById("quickMenuName");
+    this.quickPriceInput = document.getElementById("quickMenuPrice");
+    this.quickTempSelect = document.getElementById("quickMenuTemp");
+    this.btnQuickAdd = document.getElementById("btnQuickAdd");
+
+    // 텍스트 파서 요소
+    this.parseInput = document.getElementById("parseInput");
+    this.btnParse = document.getElementById("btnParse");
+    this.parseResultContainer = document.getElementById("parseResultContainer");
+    this.btnApplyParseToOrder = document.getElementById("btnApplyParseToOrder");
+
+    // 하단 바
+    this.bottomTotalCount = document.getElementById("bottomTotalCount");
+    this.bottomTotalPrice = document.getElementById("bottomTotalPrice");
+    this.btnResetOrder = document.getElementById("btnResetOrder");
+    this.btnOpenModal = document.getElementById("btnOpenModal");
+
+    // 모달 요소
+    this.orderModal = document.getElementById("orderModal");
+    this.btnCloseModal = document.getElementById("btnCloseModal");
+    this.btnCloseSheet = document.getElementById("btnCloseSheet");
+    this.modalCounterList = document.getElementById("modalCounterList");
+    this.modalTotalCount = document.getElementById("modalTotalCount");
+    this.modalTotalPrice = document.getElementById("modalTotalPrice");
+    this.btnCopyKakao = document.getElementById("btnCopyKakao");
+
+    // 정산기
+    this.dutchHeadcount = document.getElementById("dutchHeadcount");
+    this.dutchPerPerson = document.getElementById("dutchPerPerson");
+    this.btnCopyDutch = document.getElementById("btnCopyDutch");
+
+    // 관리 탭 요소
+    this.manageCafeSelect = document.getElementById("manageCafeSelect");
+    this.menuManageList = document.getElementById("menuManageList");
+    this.btnAddCustomCafe = document.getElementById("btnAddCustomCafe");
+    this.newCafeNameInput = document.getElementById("newCafeName");
+    this.btnAddCustomMenu = document.getElementById("btnAddCustomMenu");
+    this.newMenuNameInput = document.getElementById("newMenuName");
+    this.newMenuPriceInput = document.getElementById("newMenuPrice");
+    this.newMenuCategoryInput = document.getElementById("newMenuCategory");
+    this.newMenuTempSelect = document.getElementById("newMenuTemp");
+    this.btnDeleteCurrentCafe = document.getElementById("btnDeleteCurrentCafe");
+
+    // 토스트
+    this.toastEl = document.getElementById("toastMsg");
+  }
+
+  initEvents() {
+    // 탭 전환 이벤트
+    this.tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        this.switchTab(tab);
+      });
+    });
+
+    // 즉석 메뉴 추가
+    this.btnQuickAdd.addEventListener("click", () => this.handleQuickAdd());
+    this.quickNameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") this.handleQuickAdd();
+    });
+
+    // 카톡 텍스트 파싱
+    this.btnParse.addEventListener("click", () => this.handleParseText());
+    if (this.btnApplyParseToOrder) {
+      this.btnApplyParseToOrder.addEventListener("click", () => this.applyParseResultsToOrder());
+    }
+
+    // 샘플 텍스트 버튼
+    document.querySelectorAll(".btn-sample").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const sampleText = btn.dataset.sample;
+        if (sampleText) {
+          this.parseInput.value = sampleText.replace(/\\n/g, "\n");
+          this.handleParseText();
+        }
+      });
+    });
+
+    // 하단 주문 초기화
+    this.btnResetOrder.addEventListener("click", () => {
+      if (this.orderMap.size === 0) return;
+      if (confirm("현재 작성 중인 모든 주문을 비우시겠습니까?")) {
+        this.orderMap.clear();
+        this.renderMenuList();
+        this.updateBottomBar();
+        this.showToast("주문 목록이 초기화되었습니다.");
+      }
+    });
+
+    // 모달 열기 / 닫기
+    this.btnOpenModal.addEventListener("click", () => this.openOrderModal());
+    this.btnCloseModal.addEventListener("click", () => this.closeOrderModal());
+    this.btnCloseSheet.addEventListener("click", () => this.closeOrderModal());
+    this.orderModal.addEventListener("click", (e) => {
+      if (e.target === this.orderModal) this.closeOrderModal();
+    });
+
+    // 카톡 텍스트 복사
+    this.btnCopyKakao.addEventListener("click", () => this.copyKakaoSummary());
+
+    // 더치페이 인원 수 변경
+    this.dutchHeadcount.addEventListener("input", () => this.calculateDutchPay());
+    this.btnCopyDutch.addEventListener("click", () => this.copyDutchSummary());
+
+    // 관리 탭 이벤트
+    this.btnAddCustomCafe.addEventListener("click", () => this.handleAddCafe());
+    this.btnAddCustomMenu.addEventListener("click", () => this.handleAddMenu());
+    this.btnDeleteCurrentCafe.addEventListener("click", () => this.handleDeleteCafe());
+    this.manageCafeSelect.addEventListener("change", (e) => {
+      this.cafeManager.setActiveCafeId(e.target.value);
+      this.renderCafeChips();
+      this.renderCategoryChips();
+      this.renderMenuList();
+      this.renderManageMenuList();
+    });
+  }
+
+  showToast(msg) {
+    if (!this.toastEl) return;
+    this.toastEl.textContent = msg;
+    this.toastEl.classList.add("show");
+    setTimeout(() => {
+      this.toastEl.classList.remove("show");
+    }, 2400);
+  }
+
+  switchTab(tabId) {
+    this.currentTab = tabId;
+    this.tabBtns.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabId));
+    this.tabContents.forEach(content => {
+      content.classList.toggle("active", content.id === `tab-${tabId}`);
+    });
+
+    if (tabId === "manage") {
+      this.renderManageView();
+    }
+  }
+
+  // --- 카페 선택 및 카테고리 칩 렌더링 ---
+  renderCafeChips() {
+    const activeId = this.cafeManager.getActiveCafeId();
+    this.cafeChipsContainer.innerHTML = "";
+
+    this.cafeManager.cafes.forEach(cafe => {
+      const chip = document.createElement("button");
+      chip.className = `cafe-chip ${cafe.id === activeId ? "active" : ""}`;
+      chip.innerHTML = `<span>${cafe.icon || "☕"}</span> <span>${cafe.name}</span>`;
+      chip.addEventListener("click", () => {
+        if (this.cafeManager.getActiveCafeId() !== cafe.id) {
+          this.cafeManager.setActiveCafeId(cafe.id);
+          this.activeCategory = "전체";
+          this.renderCafeChips();
+          this.renderCategoryChips();
+          this.renderMenuList();
+          this.showToast(`'${cafe.name}' 메뉴판으로 변경되었습니다.`);
+        }
+      });
+      this.cafeChipsContainer.appendChild(chip);
+    });
+
+    // [+ 카페 추가] 바로가기 칩
+    const addChip = document.createElement("button");
+    addChip.className = "cafe-chip btn-add-cafe";
+    addChip.innerHTML = `<span>➕</span> <span>카페 추가</span>`;
+    addChip.addEventListener("click", () => {
+      this.switchTab("manage");
+      this.newCafeNameInput.focus();
+    });
+    this.cafeChipsContainer.appendChild(addChip);
+  }
+
+  renderCategoryChips() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    this.catChipsContainer.innerHTML = "";
+
+    const categories = ["전체", ...(activeCafe.categories || [])];
+    categories.forEach(cat => {
+      const chip = document.createElement("button");
+      chip.className = `cat-chip ${this.activeCategory === cat ? "active" : ""}`;
+      chip.textContent = cat;
+      chip.addEventListener("click", () => {
+        this.activeCategory = cat;
+        this.renderCategoryChips();
+        this.renderMenuList();
+      });
+      this.catChipsContainer.appendChild(chip);
+    });
+  }
+
+  // --- 메뉴 리스트 렌더링 ---
+  renderMenuList() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    this.menuGrid.innerHTML = "";
+
+    let menus = activeCafe.menus || [];
+    if (this.activeCategory === "추천/인기") {
+      menus = menus.filter(m => m.popular);
+    } else if (this.activeCategory !== "전체") {
+      menus = menus.filter(m => m.category === this.activeCategory);
+    }
+
+    if (menus.length === 0) {
+      this.menuGrid.innerHTML = `
+        <div style="text-align: center; padding: 36px 12px; color: var(--text-muted);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+          <div>등록된 메뉴가 없습니다.</div>
+          <div style="font-size: 0.8rem; margin-top: 4px;">아래 '즉석 메뉴 추가'로 음료를 바로 추가해보세요!</div>
+        </div>
+      `;
+      return;
+    }
+
+    menus.forEach(menu => {
+      const card = this.createMenuCard(menu, activeCafe);
+      this.menuGrid.appendChild(card);
+    });
+  }
+
+  createMenuCard(menu, cafe) {
+    const card = document.createElement("div");
+    card.className = "menu-card";
+
+    // 기본 선택 온도: both면 기존 주문 내역(HOT만 있는지 여부)에 맞춰 자동 설정
+    let currentTemp = menu.temp === "hot" ? "HOT" : "ICE";
+    if (menu.temp === "both") {
+      const hotItem = this.orderMap.get(`${menu.name}_HOT`);
+      const iceItem = this.orderMap.get(`${menu.name}_ICE`);
+      if ((!iceItem || iceItem.qty === 0) && (hotItem && hotItem.qty > 0)) {
+        currentTemp = "HOT";
+      }
+    }
+
+    const getOrderKey = () => `${menu.name}_${currentTemp}`;
+    const getCurrentQty = () => {
+      const item = this.orderMap.get(getOrderKey());
+      return item ? item.qty : 0;
+    };
+
+    const hasAnyOrder = () => {
+      if (menu.temp === "both") {
+        const iceQty = (this.orderMap.get(`${menu.name}_ICE`) || {}).qty || 0;
+        const hotQty = (this.orderMap.get(`${menu.name}_HOT`) || {}).qty || 0;
+        return (iceQty + hotQty) > 0;
+      }
+      return getCurrentQty() > 0;
+    };
+
+    const updateCardState = () => {
+      const qty = getCurrentQty();
+      card.classList.toggle("has-order", hasAnyOrder());
+      const qtyEl = card.querySelector(".qty-val");
+      if (qtyEl) {
+        qtyEl.textContent = qty;
+        qtyEl.classList.toggle("nonzero", qty > 0);
+      }
+    };
+
+    // 카드 내부 HTML
+    card.innerHTML = `
+      <div class="menu-info" style="cursor: pointer;" title="터치하여 1잔 추가">
+        <div class="menu-tags">
+          ${menu.popular ? '<span class="badge-popular">인기</span>' : ''}
+          ${menu.temp === 'ice' ? '<span class="badge-temp badge-ice">ICE전용</span>' : ''}
+          ${menu.temp === 'hot' ? '<span class="badge-temp badge-hot">HOT전용</span>' : ''}
+        </div>
+        <div class="menu-name" title="${menu.name}">${menu.name}</div>
+        <div class="menu-price">${menu.price.toLocaleString()}원</div>
+      </div>
+      <div class="order-controls">
+        ${menu.temp === 'both' ? `
+          <div class="temp-toggle-group">
+            <button type="button" class="btn-temp ice ${currentTemp === 'ICE' ? 'active' : ''}">ICE</button>
+            <button type="button" class="btn-temp hot ${currentTemp === 'HOT' ? 'active' : ''}">HOT</button>
+          </div>
+        ` : ''}
+        <div class="qty-stepper">
+          <button type="button" class="btn-step btn-minus">−</button>
+          <span class="qty-val ${getCurrentQty() > 0 ? 'nonzero' : ''}">${getCurrentQty()}</span>
+          <button type="button" class="btn-step btn-plus">+</button>
+        </div>
+      </div>
+    `;
+
+    // 메뉴 정보 클릭 시에도 +1 추가
+    card.querySelector(".menu-info").addEventListener("click", () => {
+      btnPlus.click();
+    });
+
+    // 온도 토글 이벤트 (both인 경우)
+    if (menu.temp === "both") {
+      const btnIce = card.querySelector(".btn-temp.ice");
+      const btnHot = card.querySelector(".btn-temp.hot");
+
+      btnIce.addEventListener("click", () => {
+        currentTemp = "ICE";
+        btnIce.classList.add("active");
+        btnHot.classList.remove("active");
+        updateCardState();
+      });
+
+      btnHot.addEventListener("click", () => {
+        currentTemp = "HOT";
+        btnHot.classList.add("active");
+        btnIce.classList.remove("active");
+        updateCardState();
+      });
+    }
+
+    // 수량 변경 이벤트
+    const btnPlus = card.querySelector(".btn-plus");
+    const btnMinus = card.querySelector(".btn-minus");
+
+    btnPlus.addEventListener("click", () => {
+      const key = getOrderKey();
+      const existing = this.orderMap.get(key) || {
+        menuName: menu.name,
+        temp: currentTemp,
+        price: menu.price,
+        qty: 0,
+        options: [],
+        persons: []
+      };
+      existing.qty += 1;
+      this.orderMap.set(key, existing);
+      if (navigator.vibrate) navigator.vibrate(10);
+      updateCardState();
+      this.updateBottomBar();
+    });
+
+    btnMinus.addEventListener("click", () => {
+      const key = getOrderKey();
+      const existing = this.orderMap.get(key);
+      if (existing && existing.qty > 0) {
+        existing.qty -= 1;
+        if (existing.qty === 0) {
+          this.orderMap.delete(key);
+        }
+        if (navigator.vibrate) navigator.vibrate(10);
+        updateCardState();
+        this.updateBottomBar();
+      }
+    });
+
+    updateCardState();
+    return card;
+  }
+
+  // --- 즉석 메뉴 추가 ---
+  handleQuickAdd() {
+    const name = this.quickNameInput.value.trim();
+    const price = parseInt(this.quickPriceInput.value, 10) || 0;
+    const temp = this.quickTempSelect.value;
+
+    if (!name) {
+      alert("음료 이름을 입력해주세요.");
+      return;
+    }
+
+    const key = `${name}_${temp}`;
+    const existing = this.orderMap.get(key) || {
+      menuName: name,
+      temp: temp,
+      price: price,
+      qty: 0,
+      options: ["즉석추가"],
+      persons: []
+    };
+    existing.qty += 1;
+    this.orderMap.set(key, existing);
+
+    this.quickNameInput.value = "";
+    this.quickPriceInput.value = "";
+    this.updateBottomBar();
+    this.showToast(`'${name} (${temp})' 1잔이 추가되었습니다!`);
+  }
+
+  // --- 텍스트 파싱 탭 처리 ---
+  handleParseText() {
+    const rawText = this.parseInput.value.trim();
+    if (!rawText) {
+      alert("분석할 단톡방 대화 텍스트를 입력해주세요.");
+      return;
+    }
+
+    const activeCafe = this.cafeManager.getActiveCafe();
+    const result = this.textParser.parseFullText(rawText, activeCafe.menus);
+    this.lastParsedResult = result;
+
+    this.renderParseResults(result);
+  }
+
+  renderParseResults(result) {
+    this.parseResultContainer.innerHTML = "";
+
+    if (result.items.length === 0) {
+      this.parseResultContainer.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          인식된 음료 주문이 없습니다. 텍스트를 다시 확인해주세요.
+        </div>
+      `;
+      return;
+    }
+
+    // 상단 요약 배지
+    const headerRow = document.createElement("div");
+    headerRow.style.display = "flex";
+    headerRow.style.justifyContent = "space-between";
+    headerRow.style.alignItems = "center";
+    headerRow.style.marginBottom = "10px";
+    headerRow.innerHTML = `
+      <span style="font-weight: 800; font-size: 0.95rem;">총 ${result.totalQty}잔 인식됨</span>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">${result.summary.length}종류 메뉴</span>
+    `;
+    this.parseResultContainer.appendChild(headerRow);
+
+    result.summary.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "result-card";
+      const personText = item.persons.length > 0 ? `주문자: ${item.persons.join(", ")}` : "주문자 미지정";
+
+      card.innerHTML = `
+        <div>
+          <div class="result-title">
+            <span class="badge-temp ${item.temp === 'ICE' ? 'badge-ice' : 'badge-hot'}">${item.temp}</span>
+            <span>${item.menuName}</span>
+            ${item.options.length > 0 ? `<span style="font-size:0.75rem; color:#B45309;">(${item.options.join(', ')})</span>` : ''}
+          </div>
+          <div class="result-persons">${personText}</div>
+        </div>
+        <div class="result-qty-badge">${item.qty}잔</div>
+      `;
+      this.parseResultContainer.appendChild(card);
+    });
+
+    if (this.btnApplyParseToOrder) {
+      this.btnApplyParseToOrder.style.display = "flex";
+    }
+  }
+
+  applyParseResultsToOrder() {
+    if (!this.lastParsedResult || this.lastParsedResult.items.length === 0) return;
+
+    const activeCafe = this.cafeManager.getActiveCafe();
+
+    this.lastParsedResult.items.forEach(item => {
+      // 메뉴 가격 매칭 시도
+      let price = 0;
+      const matched = activeCafe.menus.find(m => m.name.includes(item.menuName) || item.menuName.includes(m.name));
+      if (matched) {
+        price = matched.price;
+      }
+
+      const optKey = item.options.length > 0 ? item.options.join(",") : "";
+      const key = `${item.menuName}_${item.temp}_${optKey}`;
+
+      const existing = this.orderMap.get(key) || {
+        menuName: item.menuName,
+        temp: item.temp,
+        price: price,
+        qty: 0,
+        options: item.options,
+        persons: []
+      };
+
+      existing.qty += item.qty;
+      if (item.person && item.person !== "익명" && !existing.persons.includes(item.person)) {
+        existing.persons.push(item.person);
+      }
+      this.orderMap.set(key, existing);
+    });
+
+    this.updateBottomBar();
+    this.renderMenuList();
+    this.showToast(`총 ${this.lastParsedResult.totalQty}잔이 주문서에 합산되었습니다!`);
+    this.switchTab("counter");
+  }
+
+  // --- 하단 바 및 모달 상태 갱신 ---
+  updateBottomBar() {
+    let totalCount = 0;
+    let totalPrice = 0;
+
+    for (const item of this.orderMap.values()) {
+      totalCount += item.qty;
+      totalPrice += (item.price || 0) * item.qty;
+    }
+
+    this.bottomTotalCount.textContent = `총 ${totalCount}잔`;
+    this.bottomTotalPrice.textContent = `${totalPrice.toLocaleString()}원`;
+
+    // 1/N 정산 기본 인원수 세팅
+    if (this.dutchHeadcount) {
+      const currentHeadcount = parseInt(this.dutchHeadcount.value, 10) || 1;
+      this.calculateDutchPay(totalPrice, currentHeadcount);
+    }
+  }
+
+  openOrderModal() {
+    if (this.orderMap.size === 0) {
+      this.showToast("아직 담은 음료가 없습니다!");
+      return;
+    }
+
+    const activeCafe = this.cafeManager.getActiveCafe();
+    this.modalCounterList.innerHTML = "";
+
+    let totalCount = 0;
+    let totalPrice = 0;
+
+    for (const item of this.orderMap.values()) {
+      if (item.qty <= 0) continue;
+      totalCount += item.qty;
+      totalPrice += (item.price || 0) * item.qty;
+
+      const optText = item.options.length > 0 ? ` (${item.options.join(", ")})` : "";
+      const personText = item.persons && item.persons.length > 0 ? `[${item.persons.join(", ")}]` : "";
+
+      const row = document.createElement("div");
+      row.className = "counter-list-item";
+      row.title = "터치하여 주문 완료 체크";
+      row.innerHTML = `
+        <div>
+          <span class="counter-item-name">
+            <span class="badge-temp ${item.temp === 'ICE' ? 'badge-ice' : 'badge-hot'}" style="margin-right: 4px;">${item.temp}</span>
+            ${item.menuName}${optText}
+          </span>
+          ${personText ? `<div style="font-size:0.75rem; color:#64748B; margin-top:2px;">${personText}</div>` : ''}
+        </div>
+        <div class="counter-item-qty">${item.qty}잔</div>
+      `;
+      row.addEventListener("click", () => {
+        row.classList.toggle("checked");
+        if (navigator.vibrate) navigator.vibrate(12);
+      });
+      this.modalCounterList.appendChild(row);
+    }
+
+    this.modalTotalCount.textContent = `총 ${totalCount}잔`;
+    this.modalTotalPrice.textContent = `${totalPrice.toLocaleString()}원 (${activeCafe.name})`;
+
+    this.calculateDutchPay(totalPrice);
+    this.orderModal.classList.add("active");
+  }
+
+  closeOrderModal() {
+    this.orderModal.classList.remove("active");
+  }
+
+  calculateDutchPay(fixedTotalPrice, count) {
+    let totalPrice = fixedTotalPrice;
+    if (totalPrice === undefined) {
+      totalPrice = 0;
+      for (const item of this.orderMap.values()) {
+        totalPrice += (item.price || 0) * item.qty;
+      }
+    }
+
+    const headcount = count !== undefined ? count : (parseInt(this.dutchHeadcount.value, 10) || 1);
+    const perPerson = Math.ceil(totalPrice / Math.max(1, headcount));
+    this.dutchPerPerson.textContent = `${perPerson.toLocaleString()}원`;
+  }
+
+  // 카톡 공유용 주문 텍스트 생성 및 복사
+  copyKakaoSummary() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    let totalCount = 0;
+    let totalPrice = 0;
+
+    let lines = [];
+    lines.push(`☕ [${activeCafe.name}] 단체 음료 주문 내역`);
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+
+    for (const item of this.orderMap.values()) {
+      if (item.qty <= 0) continue;
+      totalCount += item.qty;
+      totalPrice += (item.price || 0) * item.qty;
+
+      const optText = item.options.length > 0 ? ` (${item.options.join(", ")})` : "";
+      const personText = item.persons && item.persons.length > 0 ? ` ➜ ${item.persons.join(", ")}` : "";
+      lines.push(`• [${item.temp}] ${item.menuName}${optText}: ${item.qty}잔${personText}`);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`총 ${totalCount}잔 / 예상 합계: ${totalPrice.toLocaleString()}원`);
+
+    const fullText = lines.join("\n");
+    navigator.clipboard.writeText(fullText).then(() => {
+      this.showToast("카카오톡 공유 텍스트가 복사되었습니다! ✨");
+    }).catch(() => {
+      prompt("아래 텍스트를 복사하세요:", fullText);
+    });
+  }
+
+  copyDutchSummary() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    let totalPrice = 0;
+    for (const item of this.orderMap.values()) {
+      totalPrice += (item.price || 0) * item.qty;
+    }
+    const headcount = parseInt(this.dutchHeadcount.value, 10) || 1;
+    const perPerson = Math.ceil(totalPrice / Math.max(1, headcount));
+
+    const text = `💸 [${activeCafe.name}] 음료 정산 안내\n총 금액: ${totalPrice.toLocaleString()}원 (${headcount}명)\n👉 1인당: ${perPerson.toLocaleString()}원 보내주세요!`;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToast("정산 요청 텍스트가 복사되었습니다! 💸");
+    }).catch(() => {
+      prompt("아래 텍스트를 복사하세요:", text);
+    });
+  }
+
+  // --- 카페/메뉴 관리 탭 기능 ---
+  renderManageView() {
+    // 카페 셀렉트 박스 갱신
+    this.manageCafeSelect.innerHTML = "";
+    this.cafeManager.cafes.forEach(cafe => {
+      const opt = document.createElement("option");
+      opt.value = cafe.id;
+      opt.textContent = `${cafe.icon || "☕"} ${cafe.name}`;
+      if (cafe.id === this.cafeManager.getActiveCafeId()) {
+        opt.selected = true;
+      }
+      this.manageCafeSelect.appendChild(opt);
+    });
+
+    this.renderManageMenuList();
+  }
+
+  renderManageMenuList() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    this.menuManageList.innerHTML = "";
+
+    if (!activeCafe.menus || activeCafe.menus.length === 0) {
+      this.menuManageList.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 0;">등록된 메뉴가 없습니다.</div>`;
+      return;
+    }
+
+    activeCafe.menus.forEach(menu => {
+      const row = document.createElement("div");
+      row.className = "menu-manage-item";
+      row.innerHTML = `
+        <div>
+          <span style="font-weight:700;">${menu.name}</span>
+          <span style="font-size:0.8rem; color:var(--text-muted); margin-left:6px;">(${menu.price.toLocaleString()}원 / ${menu.temp})</span>
+        </div>
+        <button type="button" class="btn-del-menu" data-id="${menu.id}">삭제</button>
+      `;
+
+      row.querySelector(".btn-del-menu").addEventListener("click", () => {
+        if (confirm(`'${menu.name}' 메뉴를 삭제하시겠습니까?`)) {
+          this.cafeManager.deleteMenu(activeCafe.id, menu.id);
+          this.renderManageMenuList();
+          this.renderMenuList();
+          this.showToast(`'${menu.name}' 메뉴가 삭제되었습니다.`);
+        }
+      });
+
+      this.menuManageList.appendChild(row);
+    });
+  }
+
+  handleAddCafe() {
+    const name = this.newCafeNameInput.value.trim();
+    if (!name) {
+      alert("새로운 카페 이름을 입력해주세요.");
+      return;
+    }
+    this.cafeManager.addCafe(name);
+    this.newCafeNameInput.value = "";
+    this.renderCafeChips();
+    this.renderManageView();
+    this.showToast(`새 카페 '${name}'이(가) 등록되었습니다!`);
+  }
+
+  handleDeleteCafe() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    if (confirm(`정말 '${activeCafe.name}' 카페를 목록에서 삭제하시겠습니까?`)) {
+      if (this.cafeManager.deleteCafe(activeCafe.id)) {
+        this.renderCafeChips();
+        this.renderCategoryChips();
+        this.renderMenuList();
+        this.renderManageView();
+        this.showToast("카페가 삭제되었습니다.");
+      }
+    }
+  }
+
+  handleAddMenu() {
+    const activeCafe = this.cafeManager.getActiveCafe();
+    const name = this.newMenuNameInput.value.trim();
+    const price = parseInt(this.newMenuPriceInput.value, 10) || 0;
+    const category = this.newMenuCategoryInput.value.trim() || "커피";
+    const temp = this.newMenuTempSelect.value;
+
+    if (!name) {
+      alert("추가할 메뉴 이름을 입력해주세요.");
+      return;
+    }
+
+    this.cafeManager.addMenu(activeCafe.id, {
+      name,
+      price,
+      category,
+      temp,
+      popular: false
+    });
+
+    this.newMenuNameInput.value = "";
+    this.newMenuPriceInput.value = "";
+    this.renderManageMenuList();
+    this.renderCategoryChips();
+    this.renderMenuList();
+    this.showToast(`'${name}' 메뉴가 추가되었습니다!`);
+  }
+}
+
+// 앱 실행
+document.addEventListener("DOMContentLoaded", () => {
+  window.app = new App();
+});
