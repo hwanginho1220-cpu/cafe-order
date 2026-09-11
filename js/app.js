@@ -129,6 +129,18 @@ class App {
         }
       }
 
+      // 2-2. 카페 표시 순서 실시간 동기화 (모바일 <-> PC)
+      if (Array.isArray(roomData.cafeOrder) && roomData.cafeOrder.length > 0) {
+        if (this.cafeManager.applyCafeOrder(roomData.cafeOrder)) {
+          this.renderCafeChips();
+          this.renderCategoryChips();
+          this.renderMenuList();
+          if (this.currentTab === "manage") {
+            this.renderCafeReorderList();
+          }
+        }
+      }
+
       // 3. 주문 목록 실시간 동기화
       if (Array.isArray(roomData.orders)) {
         this.orderMap.clear();
@@ -874,6 +886,7 @@ class App {
           this.renderCafeChips();
           this.renderCafeReorderList();
           this.renderManageView();
+          if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
           this.showToast(`'${cafe.name}' 카페가 앞으로 이동되었습니다.`);
         }
       });
@@ -883,6 +896,7 @@ class App {
           this.renderCafeChips();
           this.renderCafeReorderList();
           this.renderManageView();
+          if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
           this.showToast(`'${cafe.name}' 카페가 뒤로 이동되었습니다.`);
         }
       });
@@ -934,6 +948,7 @@ class App {
     this.newCafeNameInput.value = "";
     this.renderCafeChips();
     this.renderManageView();
+    if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
     this.showToast(`새 카페 '${name}'이(가) 등록되었습니다!`);
   }
 
@@ -945,6 +960,7 @@ class App {
         this.renderCategoryChips();
         this.renderMenuList();
         this.renderManageView();
+        if (this.sync) this.sync.setCafeOrder(this.cafeManager.getCafeOrderIds());
         this.showToast("카페가 삭제되었습니다.");
       }
     }

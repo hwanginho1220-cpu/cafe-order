@@ -183,6 +183,31 @@ class CafeDataManager {
     return true;
   }
 
+  getCafeOrderIds() {
+    return this.cafes.map(c => c.id);
+  }
+
+  applyCafeOrder(orderIds) {
+    if (!Array.isArray(orderIds) || orderIds.length === 0) return false;
+    const currentOrder = this.getCafeOrderIds().join(",");
+    if (currentOrder === orderIds.join(",")) return false; // 이미 동일 순서면 무시
+
+    const cafeMap = new Map(this.cafes.map(c => [c.id, c]));
+    const newCafes = [];
+    orderIds.forEach(id => {
+      if (cafeMap.has(id)) {
+        newCafes.push(cafeMap.get(id));
+        cafeMap.delete(id);
+      }
+    });
+    for (const c of cafeMap.values()) {
+      newCafes.push(c);
+    }
+    this.cafes = newCafes;
+    this.saveCafes();
+    return true;
+  }
+
   addCafe(name, icon = "☕", themeColor = "#6366F1") {
     const id = "custom_" + Date.now();
     const newCafe = {
