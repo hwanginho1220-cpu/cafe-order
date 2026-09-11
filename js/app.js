@@ -13,8 +13,11 @@ class App {
     this.activeCategory = "전체";
     this.currentTab = "counter"; // 'counter', 'parser', 'manage'
 
+    this.sync = window.cloudSyncService;
+
     this.initDOM();
     this.initEvents();
+    this.initCloudSync();
     this.renderCafeChips();
     this.renderCategoryChips();
     this.renderMenuList();
@@ -90,13 +93,82 @@ class App {
     const savedTitle = this.cafeManager.getAppTitle();
     if (this.appTitleText) this.appTitleText.textContent = savedTitle;
     document.title = `${savedTitle} - 단체 음료 주문 취합기`;
-    if (this.customAppTitleInput) this.customAppTitleInput.value = savedTitle;
+    // 닉네임 및 공유 링크 요소
+    this.userNicknameInput = document.getElementById("userNicknameInput");
+    this.btnShareRoomLink = document.getElementById("btnShareRoomLink");
+
+    // 저장된 닉네임 로드
+    const savedNickname = localStorage.getItem("my_order_nickname") || "";
+    if (this.userNicknameInput) this.userNicknameInput.value = savedNickname;
 
     // 토스트
     this.toastEl = document.getElementById("toastMsg");
   }
 
+  initCloudSync() {
+    if (!this.sync) return;
+
+    this.sync.onSync((roomData) => {
+      if (!roomData) return;
+
+      // 1. 앱 타이틀 실시간 동기화
+      if (roomData.title && roomData.title !== this.cafeManager.getAppTitle()) {
+        this.cafeManager.setAppTitle(roomData.title);
+        if (this.appTitleText) this.appTitleText.textContent = roomData.title;
+        document.title = `${roomData.title} - 단체 음료 주문 취합기`;
+        if (this.customAppTitleInput) this.customAppTitleInput.value = roomData.title;
+      }
+
+      // 2. 활성 카페 실시간 동기화
+      if (roomData.activeCafeId && roomData.activeCafeId !== this.cafeManager.getActiveCafeId()) {
+        if (this.cafeManager.cafes.some(c => c.id === roomData.activeCafeId)) {
+          this.cafeManager.setActiveCafeId(roomData.activeCafeId);
+          this.renderCafeChips();
+          this.renderCategoryChips();
+          this.renderMenuList();
+        }
+      }
+
+      // 3. 주문 목록 실시간 동기화
+      if (Array.isArray(roomData.orders)) {
+        this.orderMap.clear();
+        roomData.orders.forEach(item => {
+          this.orderMap.set(item.key, {
+            menuName: item.menuName,
+            temp: item.temp,
+            price: item.price || 0,
+            qty: item.qty,
+            options: item.options || [],
+            persons: item.persons || [],
+            personMap: item.personMap || {}
+          });
+        });
+        this.updateBottomBar();
+        this.renderMenuList();
+      }
+    });
+  }
+
   initEvents() {
+    // 닉네임 저장 이벤트
+    if (this.userNicknameInput) {
+      this.userNicknameInput.addEventListener("input", () => {
+        localStorage.setItem("my_order_nickname", this.userNicknameInput.value.trim());
+      });
+    }
+
+    // 공유 링크 복사 이벤트
+    if (this.btnShareRoomLink) {
+      this.btnShareRoomLink.addEventListener("click", () => {
+        const url = this.sync ? this.sync.getShareUrl() : window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+          this.showToast("주문방 링크가 복사되었습니다! 카톡에 공유하세요 📋");
+        }).catch(() => {
+          prompt("아래 주소를 복사하여 단톡방에 공유하세요:", url);
+        });
+      });
+    }
+
     // 앱 제목 변경 이벤트
     if (this.brandTitleArea) {
       this.brandTitleArea.addEventListener("click", () => {
@@ -151,10 +223,11 @@ class App {
     // 하단 주문 초기화
     this.btnResetOrder.addEventListener("click", () => {
       if (this.orderMap.size === 0) return;
-      if (confirm("현재 작성 중인 모든 주문을 비우시겠습니까?")) {
+      if (confirm("현재 작성 중인 모든 주문을 비우시겠습니까? (다른 참여자 화면에서도 비워집니다)")) {
         this.orderMap.clear();
         this.renderMenuList();
         this.updateBottomBar();
+        if (this.sync) this.sync.clearOrders();
         this.showToast("주문 목록이 초기화되었습니다.");
       }
     });
@@ -224,6 +297,7 @@ class App {
           this.renderCafeChips();
           this.renderCategoryChips();
           this.renderMenuList();
+          if (this.sync) this.sync.setActiveCafe(cafe.id);
           this.showToast(`'${cafe.name}' 메뉴판으로 변경되었습니다.`);
         }
       });
@@ -383,6 +457,7 @@ class App {
     const btnMinus = card.querySelector(".btn-minus");
 
     btnPlus.addEventListener("click", () => {
+      const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
       const key = getOrderKey();
       const existing = this.orderMap.get(key) || {
         menuName: menu.name,
@@ -390,26 +465,43 @@ class App {
         price: menu.price,
         qty: 0,
         options: [],
-        persons: []
+        persons: [],
+        personMap: {}
       };
       existing.qty += 1;
+      if (!existing.personMap) existing.personMap = {};
+      existing.personMap[myName] = (existing.personMap[myName] || 0) + 1;
       this.orderMap.set(key, existing);
       if (navigator.vibrate) navigator.vibrate(10);
       updateCardState();
       this.updateBottomBar();
+      this.syncOrdersToCloud();
     });
 
     btnMinus.addEventListener("click", () => {
+      const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
       const key = getOrderKey();
       const existing = this.orderMap.get(key);
       if (existing && existing.qty > 0) {
         existing.qty -= 1;
+        if (!existing.personMap) existing.personMap = {};
+        if (existing.personMap[myName] && existing.personMap[myName] > 0) {
+          existing.personMap[myName] -= 1;
+          if (existing.personMap[myName] === 0) delete existing.personMap[myName];
+        } else {
+          const firstKey = Object.keys(existing.personMap)[0];
+          if (firstKey) {
+            existing.personMap[firstKey] -= 1;
+            if (existing.personMap[firstKey] === 0) delete existing.personMap[firstKey];
+          }
+        }
         if (existing.qty === 0) {
           this.orderMap.delete(key);
         }
         if (navigator.vibrate) navigator.vibrate(10);
         updateCardState();
         this.updateBottomBar();
+        this.syncOrdersToCloud();
       }
     });
 
@@ -417,11 +509,43 @@ class App {
     return card;
   }
 
+  syncOrdersToCloud() {
+    if (!this.sync) return;
+    const arr = [];
+    for (const [key, item] of this.orderMap.entries()) {
+      if (item.qty > 0) {
+        const personList = [];
+        if (item.personMap && Object.keys(item.personMap).length > 0) {
+          for (const [pName, pQty] of Object.entries(item.personMap)) {
+            if (pQty > 0) {
+              personList.push(`${pName}${pQty > 1 ? `(${pQty})` : ''}`);
+            }
+          }
+        } else if (item.persons && item.persons.length > 0) {
+          personList.push(...item.persons);
+        }
+
+        arr.push({
+          key,
+          menuName: item.menuName,
+          temp: item.temp,
+          price: item.price || 0,
+          qty: item.qty,
+          options: item.options || [],
+          persons: personList,
+          personMap: item.personMap || {}
+        });
+      }
+    }
+    this.sync.setOrders(arr);
+  }
+
   // --- 즉석 메뉴 추가 ---
   handleQuickAdd() {
     const name = this.quickNameInput.value.trim();
     const price = parseInt(this.quickPriceInput.value, 10) || 0;
     const temp = this.quickTempSelect.value;
+    const myName = (this.userNicknameInput ? this.userNicknameInput.value.trim() : "") || "익명";
 
     if (!name) {
       alert("음료 이름을 입력해주세요.");
@@ -435,15 +559,19 @@ class App {
       price: price,
       qty: 0,
       options: ["즉석추가"],
-      persons: []
+      persons: [],
+      personMap: {}
     };
     existing.qty += 1;
+    if (!existing.personMap) existing.personMap = {};
+    existing.personMap[myName] = (existing.personMap[myName] || 0) + 1;
     this.orderMap.set(key, existing);
 
     this.quickNameInput.value = "";
     this.quickPriceInput.value = "";
     this.updateBottomBar();
     this.showToast(`'${name} (${temp})' 1잔이 추가되었습니다!`);
+    this.syncOrdersToCloud();
   }
 
   // --- 텍스트 파싱 탭 처리 ---
@@ -535,8 +663,12 @@ class App {
       };
 
       existing.qty += item.qty;
-      if (item.person && item.person !== "익명" && !existing.persons.includes(item.person)) {
-        existing.persons.push(item.person);
+      if (item.person && item.person !== "익명") {
+        if (!existing.personMap) existing.personMap = {};
+        existing.personMap[item.person] = (existing.personMap[item.person] || 0) + item.qty;
+        if (!existing.persons.includes(item.person)) {
+          existing.persons.push(item.person);
+        }
       }
       this.orderMap.set(key, existing);
     });
@@ -545,6 +677,7 @@ class App {
     this.renderMenuList();
     this.showToast(`총 ${this.lastParsedResult.totalQty}잔이 주문서에 합산되었습니다!`);
     this.switchTab("counter");
+    this.syncOrdersToCloud();
   }
 
   // --- 하단 바 및 모달 상태 갱신 ---
@@ -685,6 +818,7 @@ class App {
     if (this.appTitleText) this.appTitleText.textContent = title;
     document.title = `${title} - 단체 음료 주문 취합기`;
     if (this.customAppTitleInput) this.customAppTitleInput.value = title;
+    if (this.sync) this.sync.setTitle(title);
     this.showToast(`앱 제목이 '${title}'(으)로 변경되었습니다! ✨`);
   }
 

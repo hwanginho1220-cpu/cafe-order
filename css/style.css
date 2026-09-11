@@ -931,3 +931,99 @@ body {
   background: #E2E8F0;
   border-color: #CBD5E1;
 }
+
+/* 실시간 동기화 배지 */
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: default;
+}
+.sync-badge.online {
+  background: #DCFCE7;
+  color: #166534;
+}
+.sync-badge.offline {
+  background: #F1F5F9;
+  color: #64748B;
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.sync-dot.online {
+  background: #22C55E;
+  box-shadow: 0 0 6px #22C55E;
+  animation: pulseSync 2s infinite;
+}
+.sync-dot.offline {
+  background: #94A3B8;
+}
+
+@keyframes pulseSync {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+
+/* 주문자 닉네임 바 */
+.user-nickname-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  margin: 6px 16px 2px;
+  gap: 8px;
+}
+
+.nickname-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #92400E;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nickname-input {
+  flex: 1;
+  max-width: 140px;
+  border: 1px solid #FCD34D;
+  background: #FFFFFF;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #1E293B;
+  outline: none;
+}
+.nickname-input:focus {
+  border-color: #D97706;
+}
+
+.btn-share-link {
+  background: #FFFFFF;
+  border: 1px solid #FCD34D;
+  color: #92400E;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-share-link:hover {
+  background: #FFFBEB;
+}

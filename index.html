@@ -9,6 +9,10 @@
   <title>모두의 음료 - 단체 음료 주문 취합기</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
+
+  <!-- Firebase SDK Compat CDN (v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <!-- 메인 모바일 앱 컨테이너 -->
@@ -21,10 +25,13 @@
           <span>☕</span>
           <span id="appTitleText">모두의 음료</span>
           <span style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;" title="제목 수정">✏️</span>
-          <span class="brand-badge">단체 주문 도우미</span>
+          <span class="brand-badge">단체 주문</span>
         </div>
         <div class="header-actions">
-          <button type="button" class="btn-icon" id="btnHelp" title="사용 방법 안내" onclick="alert('💡 사용 안내\n\n1. [주문 카운터]: 카페를 고르고 화면의 메뉴를 터치해 간편하게 수량을 셉니다.\n2. [단톡방 복붙 집계]: 단톡방에서 보낸 주문 대화(\'김대리: 아아 2\')를 복사해 넣으면 자동으로 파싱 & 카운팅합니다.\n3. [카페/메뉴 관리]: 자주 가는 나만의 카페와 메뉴를 자유롭게 추가/수정합니다.\n4. [주문서 보기]: 카운터나 키오스크 앞에서 읽기 쉬운 큰 글씨로 요약해주며, 카톡 공유 및 1/N 정산도 지원합니다.')">❓</button>
+          <div id="syncStatusBadge" class="sync-badge offline" title="실시간 동기화 상태">
+            <span class="sync-dot offline"></span> <span>연결 확인 중...</span>
+          </div>
+          <button type="button" class="btn-icon" id="btnHelp" title="사용 방법 안내" onclick="alert('💡 사용 안내\n\n1. [실시간 주문 취합]: 상단의 [🔗 링크 복사]를 눌러 단톡방에 링크를 공유하세요! 모든 사람이 스마트폰으로 각자 메뉴를 고르면 실시간으로 한 화면에 동시 집계됩니다.\n2. [내 닉네임]: 각자 이름을 입력하면 누가 무엇을 시켰는지 한눈에 알 수 있습니다.\n3. [카페/제목 변경]: 핸드폰이나 PC 어느 곳에서든 제목이나 카페를 바꾸면 모든 접속자 화면에 실시간 반영됩니다!')">❓</button>
         </div>
       </div>
 
@@ -33,6 +40,17 @@
         <!-- JS로 동적 렌더링 (스타벅스, 메가커피, 컴포즈, 빽다방 등) -->
       </div>
     </header>
+
+    <!-- 주문자 닉네임 및 초대 링크 바 -->
+    <div class="user-nickname-bar">
+      <div class="nickname-label">
+        <span>👤</span> <span>내 이름:</span>
+      </div>
+      <input type="text" id="userNicknameInput" class="nickname-input" placeholder="이름 입력 (예: 김철수)">
+      <button type="button" id="btnShareRoomLink" class="btn-share-link" title="카톡으로 링크 공유하기">
+        <span>🔗</span> <span>주문방 링크 복사</span>
+      </button>
+    </div>
 
     <!-- 탭 네비게이션 버튼 -->
     <nav class="nav-tabs">
@@ -266,7 +284,9 @@
   <!-- 토스트 알림 팝업 -->
   <div id="toastMsg" class="toast-msg">알림 메시지</div>
 
-  <!-- 스크립트 로드 -->
+  <!-- 스크립트 로드 (클라우드 실시간 동기화) -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/sync-service.js"></script>
   <script src="js/cafe-data.js"></script>
   <script src="js/text-parser.js"></script>
   <script src="js/app.js"></script>
