@@ -1,5 +1,5 @@
 // sw.js - Service Worker for PWA installation and offline caching
-const CACHE_NAME = 'cafe-order-v1';
+const CACHE_NAME = 'cafe-order-v6';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#92400E">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>모두의 음료 - 단체 음료 주문 취합기</title>
+  <title>모두의 음료 - 초간편 단체 음료 주문</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
 
@@ -18,394 +18,400 @@
   <!-- 메인 모바일 앱 컨테이너 -->
   <div class="app-container">
     
+    <!-- 관리자 모드 활성화 시 상단 골드 배너 -->
+    <div id="adminModeBanner" class="admin-top-banner" style="display: none;">
+      <div class="admin-banner-left">
+        <span class="admin-badge">👑 관리자 모드</span>
+        <span class="admin-banner-desc">카페 및 메뉴 설정 가능</span>
+      </div>
+      <div class="admin-banner-right">
+        <button type="button" id="btnExitAdmin" class="btn-exit-admin" title="일반 주문자 화면으로 보기">주문자 화면 보기</button>
+      </div>
+    </div>
+
     <!-- 상단 고정 헤더 -->
     <header class="app-header">
       <div class="header-top">
-        <div class="brand-title" id="brandTitleArea" title="클릭하여 앱 제목 변경" style="cursor: pointer; user-select: none;">
+        <div class="brand-title" id="brandTitleArea" title="모두의 음료">
           <span>☕</span>
           <span id="appTitleText">모두의 음료</span>
-          <span style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;" title="제목 수정">✏️</span>
-          <span class="brand-badge">단체 주문</span>
         </div>
         <div class="header-actions">
           <div id="syncStatusBadge" class="sync-badge offline" title="실시간 동기화 상태">
             <span class="sync-dot offline"></span> <span>연결 확인 중...</span>
           </div>
-          <button type="button" class="btn-icon" id="btnHelp" title="사용 방법 안내" onclick="alert('💡 사용 안내\n\n1. [실시간 주문 취합]: 상단의 [🔗 링크 복사]를 눌러 단톡방에 링크를 공유하세요! 모든 사람이 스마트폰으로 각자 메뉴를 고르면 실시간으로 한 화면에 동시 집계됩니다.\n2. [내 닉네임]: 각자 이름을 입력하면 누가 무엇을 시켰는지 한눈에 알 수 있습니다.\n3. [카페/제목 변경]: 핸드폰이나 PC 어느 곳에서든 제목이나 카페를 바꾸면 모든 접속자 화면에 실시간 반영됩니다!')">❓</button>
+          <button type="button" class="btn-admin-lock" id="btnAdminAuth" title="관리자 모드">
+            <span id="adminLockIcon">🔒</span> <span id="adminLockText">관리자</span>
+          </button>
         </div>
       </div>
 
-      <!-- 카페 선택 가로 스크롤 칩 바 -->
-      <div class="cafe-selector-bar" id="cafeChipsContainer">
-        <!-- JS로 동적 렌더링 (스타벅스, 메가커피, 컴포즈, 빽다방 등) -->
+      <!-- 오늘의 주문 카페 안내 바 -->
+      <div class="today-cafe-card" id="todayCafeCard">
+        <div class="today-cafe-info">
+          <span class="today-cafe-tag">오늘의 카페</span>
+          <span class="today-cafe-name" id="todayCafeName">브런치빈</span>
+        </div>
+        <div class="today-cafe-actions">
+          <button type="button" id="btnCopyShareLinkHeader" class="btn-share-pill" title="카톡으로 주문 링크 공유">
+            <span>🔗</span> <span>링크 복사</span>
+          </button>
+        </div>
       </div>
     </header>
 
-    <!-- 주문자 닉네임 및 초대 링크 바 -->
-    <div class="user-nickname-bar">
-      <div class="nickname-label">
-        <span>👤</span> <span>내 이름:</span>
-      </div>
-      <input type="text" id="userNicknameInput" class="nickname-input" placeholder="이름 입력 (예: 김철수)">
-      <div id="myOrderSummaryTag" class="my-order-summary-tag" style="display: none;" title="내가 담은 주문서 보기">
-        <span id="myOrderSummaryText">내 주문 0잔</span>
-      </div>
-      <button type="button" id="btnStartNewOrder" class="btn-new-order" title="새로운 주문 시작하기 (모든 기기 주문 초기화)">
-        <span>🔄</span> <span>새 주문</span>
-      </button>
-      <button type="button" id="btnShareRoomLink" class="btn-share-link" title="카톡으로 링크 공유하기">
-        <span>🔗</span> <span>링크 복사</span>
-      </button>
-    </div>
-
-    <!-- 이전 세션 주문 감지 배너 -->
-    <div id="staleOrderBanner" class="stale-order-banner" style="display: none;">
-      <div class="stale-banner-content">
-        <span>⏰</span>
-        <span id="staleOrderBannerText">이전 주문 내역이 남아있습니다.</span>
-      </div>
-      <div class="stale-banner-actions">
-        <button type="button" id="btnStaleNewOrder" class="btn-stale-action">새 주문 시작</button>
-        <button type="button" id="btnStaleDismiss" class="btn-stale-close" title="닫기">✕</button>
-      </div>
-    </div>
-
-    <!-- PWA 앱 설치 유도 배너 (미설치 기기에서 표시) -->
-    <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
-      <div class="banner-left">
-        <span class="banner-icon">📲</span>
-        <div class="banner-texts">
-          <div class="banner-title">홈 화면에 앱으로 설치하기</div>
-          <div class="banner-desc">주소창 없이 진짜 앱처럼 1초 만에 바로 열립니다!</div>
+    <!-- ==================== 1. 일반 주문자 화면 (초간단 선택 모드) ==================== -->
+    <div id="userOrderSection" class="user-order-flow">
+      
+      <!-- 1단계: 주문자 이름 입력 -->
+      <div class="step-card name-step-card">
+        <div class="step-header">
+          <span class="step-number">1</span>
+          <span class="step-title">내 이름 (주문자)</span>
         </div>
-      </div>
-      <div class="banner-right">
-        <button type="button" id="btnDoInstall" class="btn-banner-install">설치</button>
-        <button type="button" id="btnDismissInstall" class="btn-banner-close" title="닫기">✕</button>
-      </div>
-    </div>
-
-    <!-- 탭 네비게이션 버튼 -->
-    <nav class="nav-tabs">
-      <button type="button" class="nav-tab-btn active" data-tab="counter">
-        <span>👆</span>
-        <span>주문 카운터</span>
-      </button>
-      <button type="button" class="nav-tab-btn" data-tab="parser">
-        <span>💬</span>
-        <span>단톡방 복붙 집계</span>
-      </button>
-      <button type="button" class="nav-tab-btn" data-tab="manage">
-        <span>⚙️</span>
-        <span>카페/메뉴 관리</span>
-      </button>
-    </nav>
-
-    <!-- ==================== 탭 1: 주문 카운터 ==================== -->
-    <main class="tab-content active" id="tab-counter">
-      <!-- 카테고리 필터 -->
-      <div class="category-filter-bar" id="catChipsContainer">
-        <!-- JS 동적 렌더링 -->
-      </div>
-
-      <!-- 메뉴 카드 리스트 -->
-      <div class="menu-grid" id="menuGrid">
-        <!-- JS 동적 렌더링 -->
-      </div>
-
-      <!-- 즉석 메뉴 추가 카드 -->
-      <div class="quick-add-box">
-        <input type="text" id="quickMenuName" class="input-quick" placeholder="메뉴판에 없는 음료 바로 추가">
-        <select id="quickMenuTemp" class="input-quick" style="max-width: 76px;">
-          <option value="ICE">ICE</option>
-          <option value="HOT">HOT</option>
-        </select>
-        <label class="quick-mild-label" title="연하게(샷 조절)">
-          <input type="checkbox" id="quickMenuMild">
-          <span>🌱연하게</span>
-        </label>
-        <input type="number" id="quickMenuPrice" class="input-quick" style="max-width: 80px;" placeholder="가격(원)">
-        <button type="button" id="btnQuickAdd" class="btn-quick-add">+ 추가</button>
-      </div>
-    </main>
-
-    <!-- ==================== 탭 2: 단톡방 복붙 집계 ==================== -->
-    <section class="tab-content" id="tab-parser">
-      <div class="parser-section">
-        <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 6px;">💬 단톡방 주문 텍스트 붙여넣기</div>
-        <p class="section-hint">
-          카카오톡이나 메신저에서 사람들이 보낸 메시지를 그대로 복사해 붙여넣으세요! 줄임말(아아, 뜨라, 자허블 등)과 수량, 옵션을 똑똑하게 감지해 수량을 합산해 줍니다.
-        </p>
-
-        <!-- 예시 샘플 버튼 -->
-        <div class="sample-badge-group">
-          <span style="font-size: 0.76rem; color: var(--text-muted); align-self: center;">샘플 불러오기:</span>
-          <button type="button" class="btn-sample" data-sample="김팀장: 아아 2잔\n이과장 : 따뜻한 라떼 (연하게)\n박대리 - 아바라 1\n최사원: 자허블 덜달게\n정주임: 아아\n강인턴: 딸쿠프">☕ 직장 커피 심부름</button>
-          <button type="button" class="btn-sample" data-sample="1. 영희: 뜨아\n2. 철수: 아아 (샷추가)\n3. 민수: 아아 2잔\n4. 지수: 바크콜\n5. 현우: 돌체라떼">📋 번호 매긴 주문</button>
-        </div>
-
-        <textarea id="parseInput" class="textarea-parse" placeholder="예시)&#10;김철수: 아아 2잔&#10;이영희: 따뜻한 라떼 연하게&#10;박과장: 자허블 1&#10;최대리: 아바라"></textarea>
-
-        <button type="button" id="btnParse" class="btn-parse-action">
-          <span>⚡</span>
-          <span>스마트 자동 분석 & 카운팅</span>
-        </button>
-      </div>
-
-      <!-- 분석 결과 영역 -->
-      <div class="parse-results-box" id="parseResultContainer"></div>
-
-      <!-- 주문서 합산 버튼 -->
-      <button type="button" id="btnApplyParseToOrder" class="btn-parse-action" style="display: none; background: #059669; margin-top: 12px;">
-        <span>📥</span>
-        <span>위 결과를 현재 주문서에 모두 담기</span>
-      </button>
-    </section>
-
-    <!-- ==================== 탭 3: 카페 / 메뉴 관리 ==================== -->
-    <section class="tab-content" id="tab-manage">
-      <!-- 0-1. 앱 제목 변경 -->
-      <div class="manage-card">
-        <div class="card-title">🏷️ 앱 제목(이름) 변경</div>
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">상단에 표시되는 프로그램 제목을 원하는 이름으로 바꿔보세요.</div>
-        <div class="form-group" style="display: flex; gap: 8px;">
-          <input type="text" id="customAppTitleInput" class="form-input" placeholder="예: 우리팀 커피 심부름, OO부 음료 주문">
-          <button type="button" id="btnSaveAppTitle" class="btn-quick-add" style="border-radius: var(--radius-sm);">저장</button>
+        <div class="name-input-wrapper">
+          <span class="name-icon">👤</span>
+          <input type="text" id="userOrderName" class="name-input-large" placeholder="이름을 입력하세요 (예: 김철수 순장님)" maxlength="20">
         </div>
       </div>
 
-      <!-- 0-2. 카페 순서 변경 -->
-      <div class="manage-card">
-        <div class="card-title">🔄 카페 표시 순서 변경</div>
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">상단 탭에 나오는 카페 순서를 위/아래 버튼으로 손쉽게 정렬하세요.</div>
-        <div id="cafeReorderList"></div>
-      </div>
-
-      <!-- 1. 활성 카페 선택 및 삭제/수정 -->
-      <div class="manage-card">
-        <div class="card-title-row">
-          <span class="card-title">🏪 편집할 카페 선택</span>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" id="btnEditCurrentCafe" style="color:var(--primary); background:none; border:none; font-size:0.82rem; cursor:pointer; font-weight:700;">✏️ 이름 수정</button>
-            <button type="button" id="btnDeleteCurrentCafe" style="color:#EF4444; background:none; border:none; font-size:0.82rem; cursor:pointer;">현재 카페 삭제</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <select id="manageCafeSelect" class="form-select"></select>
-        </div>
-      </div>
-
-      <!-- 2. 새 카페 추가 -->
-      <div class="manage-card">
-        <div class="card-title">➕ 새로운 카페 등록</div>
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">사내 카페, 단골 개인 카페 등을 추가해보세요.</div>
-        <div class="form-group">
-          <input type="text" id="newCafeName" class="form-input" placeholder="새 카페 이름 (예: 사내카페, 컴포즈 문정점)">
-        </div>
-        <button type="button" id="btnAddCustomCafe" class="btn-secondary">+ 새 카페 생성</button>
-      </div>
-
-      <!-- 3. 현재 카페 메뉴 추가 -->
-      <div class="manage-card">
-        <div class="card-title">📝 선택된 카페 메뉴 추가</div>
-        <div class="form-group">
-          <label class="form-label">메뉴 이름</label>
-          <input type="text" id="newMenuName" class="form-input" placeholder="예: 시그니처 크림라떼">
-        </div>
-        <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <!-- 내 현재 주문 완료 상태 카드 (이미 주문한 경우 표시) -->
+      <div id="mySubmittedOrderCard" class="submitted-order-card" style="display: none;">
+        <div class="submitted-header">
+          <span class="submitted-check">✅</span>
           <div>
-            <label class="form-label">가격 (원)</label>
-            <input type="number" id="newMenuPrice" class="form-input" placeholder="4000">
-          </div>
-          <div>
-            <label class="form-label">카테고리</label>
-            <input type="text" id="newMenuCategory" class="form-input" placeholder="커피, 논커피 등">
+            <div class="submitted-title" id="submittedTitleText">김철수님의 주문이 접수되었습니다!</div>
+            <div class="submitted-sub">주문 마감 전까지 언제든 수정하실 수 있습니다.</div>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">온도 지원</label>
-          <select id="newMenuTemp" class="form-select">
-            <option value="both">HOT / ICE 둘 다 가능</option>
-            <option value="ice">ICE 전용</option>
-            <option value="hot">HOT 전용</option>
-          </select>
+        <div class="submitted-details" id="submittedDetailsList">
+          <!-- JS 렌더링 -->
         </div>
-        <button type="button" id="btnAddCustomMenu" class="btn-secondary">+ 메뉴판에 등록</button>
+        <div class="submitted-actions">
+          <button type="button" id="btnChangeMyOrder" class="btn-change-order">✏️ 메뉴 변경하기</button>
+          <button type="button" id="btnCancelMyOrder" class="btn-cancel-order">주문 취소</button>
+        </div>
       </div>
 
-      <!-- 4. 현재 카페 메뉴 목록 관리 -->
-      <div class="manage-card">
-        <div class="card-title">📋 현재 카페 등록 메뉴 목록</div>
-        <div id="menuManageList" style="margin-top: 8px;"></div>
+      <!-- 2단계: 메뉴 선택 영역 -->
+      <div class="step-card menu-step-card" id="menuSelectionArea">
+        <div class="step-header">
+          <span class="step-number">2</span>
+          <span class="step-title">마실 음료를 선택하세요</span>
+          <span class="step-hint">(터치 한 번으로 선택 완료!)</span>
+        </div>
+
+        <!-- 오늘 주문 가능한 심플 메뉴 리스트 -->
+        <div class="simple-menu-list" id="simpleMenuList">
+          <!-- JS 동적 렌더링 -->
+        </div>
       </div>
 
-      <!-- 4-2. 앱 설치하기 카드 -->
-      <div class="manage-card" id="cardInstallPwa">
-        <div class="card-title">📲 스마트폰 홈 화면에 앱 설치</div>
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom: 10px;">바탕화면에 앱 아이콘을 만들어 주소창 없이 1초 만에 실행하세요.</div>
-        <button type="button" id="btnManageInstall" class="btn-secondary" style="background:#FEF3C7; color:#92400E; border-color:#FCD34D;">
-          <span>📲</span> <span>홈 화면에 앱 설치하기</span>
+      <!-- 실시간 전체 주문 현황 (접이식 아코디언) -->
+      <div class="live-orders-accordion">
+        <button type="button" class="accordion-toggle" id="btnToggleLiveOrders">
+          <div class="accordion-title-left">
+            <span>👥</span>
+            <span>현재 주문 현황</span>
+            <span class="badge-total-count" id="liveTotalCountBadge">0명 / 0잔</span>
+          </div>
+          <span class="accordion-arrow" id="accordionArrow">▼</span>
         </button>
+        <div class="accordion-content" id="liveOrdersContent" style="display: none;">
+          <div id="liveOrdersList" class="live-orders-list">
+            <!-- JS 동적 렌더링 -->
+          </div>
+        </div>
       </div>
 
-      <!-- 5. 기본값 초기화 -->
-      <div style="text-align: center; padding: 12px;">
-        <button type="button" onclick="if(confirm('모든 커스텀 카페와 메뉴를 기본값으로 되돌리시겠습니까?')){ window.cafeDataManager.resetToDefaults(); location.reload(); }" style="color:var(--text-muted); background:none; border:none; font-size:0.8rem; text-decoration:underline; cursor:pointer;">
-          초기 기본 카페 목록으로 전체 리셋
-        </button>
-      </div>
-    </section>
+      <div style="height: 100px;"></div> <!-- 하단 여백 -->
+    </div> <!-- /userOrderSection -->
 
-    <!-- ==================== 하단 고정 주문 요약 바 ==================== -->
-    <div class="bottom-order-bar">
-      <div class="order-summary-info">
-        <span class="order-total-count" id="bottomTotalCount">총 0잔</span>
-        <span class="order-total-price" id="bottomTotalPrice">0원</span>
-      </div>
-      <div class="order-action-group">
-        <button type="button" id="btnResetOrder" class="btn-reset-order" title="주문 전체 비우기 (새 주문 시작)">
-          <span>🗑️</span> <span class="btn-reset-text">비우기</span>
+
+    <!-- ==================== 2. 관리자 제어 패널 (관리자에게만 노출) ==================== -->
+    <div id="adminPanelSection" class="admin-panel-section" style="display: none;">
+
+      <!-- 관리자 네비게이션 탭 -->
+      <nav class="admin-nav-tabs">
+        <button type="button" class="admin-tab-btn active" data-admintab="menu-setting">
+          <span>⚙️</span> <span>카페/메뉴 지정</span>
         </button>
-        <button type="button" id="btnOpenModal" class="btn-view-order">
-          <span>📋</span>
-          <span>주문서 보기</span>
+        <button type="button" class="admin-tab-btn" data-admintab="order-summary">
+          <span>📋</span> <span>취합 주문서</span>
         </button>
+        <button type="button" class="admin-tab-btn" data-admintab="talk-parser">
+          <span>💬</span> <span>단톡방 복붙</span>
+        </button>
+      </nav>
+
+      <!-- 관리자 서브탭 1: 카페 및 오늘 주문받을 메뉴 지정 -->
+      <div class="admin-tab-content active" id="admintab-menu-setting">
+        
+        <!-- 초대 링크 공유 카드 -->
+        <div class="admin-card share-callout-card">
+          <div class="card-title">🔗 주문자용 초대 링크</div>
+          <div class="card-desc">이 링크를 단톡방에 공유하면, 사람들은 복잡한 메뉴판 없이 <b>오늘 지정한 메뉴만 1초 만에 선택</b>할 수 있습니다!</div>
+          <div class="share-btn-row">
+            <button type="button" id="btnAdminCopyLink" class="btn-admin-action btn-copy-primary">
+              <span>📋</span> <span>주문자용 링크 복사</span>
+            </button>
+            <button type="button" id="btnAdminCopyNotice" class="btn-admin-action btn-copy-secondary">
+              <span>💬</span> <span>카톡 초대 안내문 복사</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 오늘 주문받을 카페 선택 -->
+        <div class="admin-card">
+          <div class="card-title-row">
+            <span class="card-title">🏪 오늘 주문받을 카페 선택</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button type="button" id="btnAdminDeleteCafe" class="btn-text-action" style="color: #EF4444; font-size: 0.8rem;">현재 카페 삭제</button>
+              <button type="button" id="btnAdminAddCafeModal" class="btn-text-action">+ 새 카페 추가</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <select id="adminCafeSelect" class="form-select"></select>
+          </div>
+        </div>
+
+        <!-- 오늘 주문받을 메뉴 지정 (체크박스 선택) -->
+        <div class="admin-card">
+          <div class="card-title-row">
+            <span class="card-title">📝 오늘 주문받을 메뉴 지정</span>
+            <div class="menu-select-actions">
+              <button type="button" id="btnSelectAllMenus" class="btn-small-link">전체 선택</button>
+              <span class="divider">|</span>
+              <button type="button" id="btnDeselectAllMenus" class="btn-small-link">전체 해제</button>
+            </div>
+          </div>
+          <div class="card-desc">체크된 메뉴만 주문자 화면에 표시됩니다. (체크를 모두 풀면 전체 메뉴가 표시됩니다)</div>
+
+          <!-- 메뉴 체크리스트 -->
+          <div class="admin-menu-checklist" id="adminMenuChecklist">
+            <!-- JS 렌더링 -->
+          </div>
+
+          <!-- 새 메뉴 등록 버튼 -->
+          <div style="margin-top: 14px;">
+            <button type="button" id="btnOpenAddMenuForm" class="btn-secondary" style="width: 100%;">
+              <span>+</span> <span>선택된 카페에 새 메뉴 추가</span>
+            </button>
+          </div>
+
+          <!-- 새 메뉴 추가 인라인 폼 (기본 숨김) -->
+          <div id="inlineAddMenuBox" class="inline-add-menu-box" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">메뉴 이름</label>
+              <input type="text" id="adminNewMenuName" class="form-input" placeholder="예: 바닐라 크림 콜드브루">
+            </div>
+            <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label class="form-label">가격 (원)</label>
+                <input type="number" id="adminNewMenuPrice" class="form-input" placeholder="4500">
+              </div>
+              <div>
+                <label class="form-label">온도</label>
+                <select id="adminNewMenuTemp" class="form-select">
+                  <option value="both">ICE / HOT 둘 다</option>
+                  <option value="ice">ICE 전용</option>
+                  <option value="hot">HOT 전용</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button type="button" id="btnSaveNewMenu" class="btn-quick-add" style="flex: 1;">등록하기</button>
+              <button type="button" id="btnCancelNewMenu" class="btn-secondary" style="width: 80px;">취소</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 모임 타이틀 변경 -->
+        <div class="admin-card">
+          <div class="card-title">🏷️ 모임/프로그램 제목 변경</div>
+          <div class="form-group" style="display: flex; gap: 8px; margin-top: 8px;">
+            <input type="text" id="adminAppTitleInput" class="form-input" placeholder="예: 우리팀 커피 주문, 우면공동체 음료 취합">
+            <button type="button" id="btnAdminSaveTitle" class="btn-quick-add" style="border-radius: var(--radius-sm); width: 80px;">저장</button>
+          </div>
+        </div>
+
+        <!-- 관리자 비밀번호 변경 및 보호 설정 -->
+        <div class="admin-card">
+          <div class="card-title-row" style="margin-bottom: 6px;">
+            <span class="card-title">🔐 관리자 비밀번호 변경</span>
+            <button type="button" id="btnToggleShowAdminPin" class="btn-small-link" style="font-size: 0.78rem;">현재 비번 보기</button>
+          </div>
+          <div class="card-desc">다른 사람이 관리자 모드로 들어와 카페/메뉴를 바꾸거나 주문을 지우지 못하도록 비밀번호를 변경할 수 있습니다. (변경 즉시 모든 기기에 적용됩니다)</div>
+          <div class="form-group" style="display: flex; gap: 8px; margin-top: 10px;">
+            <input type="password" id="adminNewPinInput" class="form-input" placeholder="새 관리자 비밀번호 입력 (4자리 이상 권장)" maxlength="20">
+            <button type="button" id="btnAdminSavePin" class="btn-quick-add" style="border-radius: var(--radius-sm); width: 100px;">비번 변경</button>
+          </div>
+        </div>
+
+      </div> <!-- /admintab-menu-setting -->
+
+
+      <!-- 관리자 서브탭 2: 취합 주문서 및 현장 주문 뷰 -->
+      <div class="admin-tab-content" id="admintab-order-summary">
+        
+        <!-- 실시간 요약 카운터 카드 -->
+        <div class="admin-card summary-header-card">
+          <div class="summary-stat-row">
+            <div class="stat-item">
+              <div class="stat-label">주문 인원</div>
+              <div class="stat-value" id="adminTotalPersonCount">0명</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <div class="stat-label">총 수량</div>
+              <div class="stat-value highlight" id="adminTotalCupCount">0잔</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <div class="stat-label">불참</div>
+              <div class="stat-value" id="adminAbsentPersonCount" style="color: #64748B;">0명</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <div class="stat-label">총 금액</div>
+              <div class="stat-value" id="adminTotalPriceCount">0원</div>
+            </div>
+          </div>
+          <div class="summary-action-row">
+            <button type="button" id="btnAdminCopyKakao" class="btn-admin-kakao">
+              <span>💬</span> <span>카톡 결과 공지 복사</span>
+            </button>
+            <button type="button" id="btnAdminClearAllOrders" class="btn-admin-clear" title="주문 전체 비우기">
+              <span>🗑️</span> <span>새 주문 시작 (초기화)</span>
+            </button>
+          </div>
+          <div id="adminBackupRestoreBox" style="display: none; margin-top: 10px;">
+            <button type="button" id="btnAdminRestoreBackup" class="btn-secondary" style="background: #ECFDF5; color: #047857; border-color: #6EE7B7; font-size: 0.85rem; padding: 9px;">
+              ♻️ 직전에 초기화된 주문 내역 다시 살리기 (복구)
+            </button>
+          </div>
+        </div>
+
+        <!-- 키오스크/카운터 전용 대형 메뉴별 집계 -->
+        <div class="admin-card">
+          <div class="card-title">☕ 카운터 주문용 메뉴별 합계 (터치 시 체크선)</div>
+          <div id="adminCounterSummaryList" class="counter-summary-list">
+            <!-- JS 렌더링 -->
+          </div>
+          <div id="adminAbsentSummaryBox" class="absent-summary-box" style="display: none;">
+            <!-- JS 렌더링: [불참] 인원수 및 명단 -->
+          </div>
+        </div>
+
+        <!-- 주문자별 명단 (수정/삭제) -->
+        <div class="admin-card">
+          <div class="card-title">👥 주문자별 상세 명단</div>
+          <div id="adminPersonDetailList" class="person-detail-list">
+            <!-- JS 렌더링 -->
+          </div>
+        </div>
+
+        <!-- 1/N 더치페이 계산기 -->
+        <div class="admin-card dutch-pay-card">
+          <div class="dutch-header">
+            <span class="card-title">💸 1/N 정산 계산기</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="number" id="adminDutchHeadcount" value="4" min="1" max="100" class="dutch-input">
+              <span style="font-size: 0.85rem; color: var(--text-muted);">명</span>
+            </div>
+          </div>
+          <div class="dutch-body">
+            <div style="font-size: 0.85rem; color: var(--text-muted);">1인당 금액:</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="adminDutchPerPerson" class="dutch-price">0원</span>
+              <button type="button" id="btnAdminCopyDutch" class="btn-small-pill">정산 복사</button>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- /admintab-order-summary -->
+
+
+      <!-- 관리자 서브탭 3: 단톡방 복붙 집계 -->
+      <div class="admin-tab-content" id="admintab-talk-parser">
+        <div class="admin-card">
+          <div class="card-title">💬 단톡방 주문 텍스트 붙여넣기</div>
+          <div class="card-desc">카톡에서 사람들이 보낸 메시지(줄임말: 아아, 뜨라, 자허블 등)를 붙여넣으면 즉시 분석하여 주문서에 합산합니다.</div>
+          
+          <textarea id="adminParseInput" class="textarea-parse" placeholder="예시)&#10;김철수: 아아 2잔&#10;이영희: 따뜻한 라떼 연하게&#10;박과장: 자허블 1&#10;최대리: 아바라"></textarea>
+
+          <button type="button" id="btnAdminDoParse" class="btn-parse-action">
+            <span>⚡</span> <span>스마트 자동 분석 & 카운팅</span>
+          </button>
+
+          <!-- 분석 결과 영역 -->
+          <div class="parse-results-box" id="adminParseResultContainer"></div>
+
+          <button type="button" id="btnAdminApplyParse" class="btn-parse-action" style="display: none; background: #059669; margin-top: 12px;">
+            <span>📥</span> <span>위 결과를 현재 주문서에 모두 담기</span>
+          </button>
+        </div>
+      </div> <!-- /admintab-talk-parser -->
+
+      <div style="height: 100px;"></div>
+    </div> <!-- /adminPanelSection -->
+
+
+    <!-- ==================== 하단 고정 주문 바 (일반 주문자용) ==================== -->
+    <div class="bottom-user-bar" id="bottomUserBar">
+      <div class="bottom-selected-info">
+        <div class="bottom-selected-name" id="bottomSelectedSummary">음료를 선택해주세요</div>
+        <div class="bottom-selected-price" id="bottomSelectedPrice"></div>
       </div>
+      <button type="button" id="btnSubmitMyOrder" class="btn-submit-order" disabled>
+        <span>주문 완료</span>
+      </button>
     </div>
 
   </div> <!-- /app-container -->
 
-  <!-- ==================== 주문서 & 카운터 뷰 바텀시트 모달 ==================== -->
-  <div class="modal-overlay" id="orderModal">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <div class="modal-title">
-          <span>📋</span>
-          <span>주문서 및 취합 관리</span>
-        </div>
-        <button type="button" class="btn-close-modal" id="btnCloseModal">✕</button>
-      </div>
 
-      <!-- 뷰 전환 탭 (주문자별 관리 vs 카운터 메뉴별 취합) -->
-      <div class="sheet-tabs">
-        <button type="button" class="btn-sheet-tab active" id="tabBtnPersonOrders">
-          <span>👥</span> <span>주문자별 수정/삭제</span>
-        </button>
-        <button type="button" class="btn-sheet-tab" id="tabBtnCounterSummary">
-          <span>☕</span> <span>카운터 메뉴별 취합</span>
-        </button>
-      </div>
-
-      <!-- 뷰 1: 주문자별 그룹 목록 (개별 수정/삭제) -->
-      <div id="modalPersonView" class="modal-view-panel active">
-        <div id="modalPersonList">
-          <!-- JS 렌더링 -->
-        </div>
-      </div>
-
-      <!-- 뷰 2: 큼직한 카운터 전용 목록 (알바생/키오스크 앞에서 보기 편함) -->
-      <div id="modalCounterView" class="modal-view-panel">
-        <div class="counter-order-box">
-          <div class="counter-title-tag">
-            <span>📢</span>
-            <span>카운터 주문 시 한눈에 확인하세요! (터치 시 체크/취소선)</span>
-          </div>
-          <div id="modalCounterList">
-            <!-- JS 렌더링 -->
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-weight: 800; background: #F8FAFC; border-radius: 12px; margin-top: 12px; border: 1px solid var(--border-color);">
-        <span id="modalTotalCount" style="color: var(--primary); font-size: 1.1rem;">총 0잔</span>
-        <span id="modalTotalPrice" style="font-size: 1.25rem; color: #1E293B;">0원</span>
-      </div>
-
-      <!-- 1/N 정산기 -->
-      <div class="dutch-pay-box">
-        <div class="dutch-row">
-          <span style="font-weight: 700; font-size: 0.9rem;">💸 1/N 더치페이 계산기</span>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <input type="number" id="dutchHeadcount" value="4" min="1" max="100" style="width: 50px; padding: 4px 6px; text-align: center; border: 1px solid var(--border-color); border-radius: 6px; font-weight: 700;">
-            <span style="font-size: 0.85rem; color: var(--text-muted);">명</span>
-          </div>
-        </div>
-        <div class="dutch-row" style="margin-bottom: 0;">
-          <span style="font-size: 0.85rem; color: var(--text-muted);">1인당 금액:</span>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span id="dutchPerPerson" style="font-size: 1.1rem; font-weight: 900; color: #059669;">0원</span>
-            <button type="button" id="btnCopyDutch" style="font-size: 0.75rem; background: #E2E8F0; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer;">정산 복사</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 하단 액션 버튼들 -->
-      <div class="btn-modal-actions">
-        <button type="button" id="btnCopyKakao" class="btn-copy-kakaotalk">
-          <span>💬</span>
-          <span>카톡 공유</span>
-        </button>
-        <button type="button" id="btnModalClearOrders" class="btn-modal-clear" title="주문 전체 비우고 새 주문 시작">
-          <span>🗑️</span>
-          <span>전체 비우기</span>
-        </button>
-        <button type="button" id="btnCloseSheet" class="btn-close-sheet">닫기</button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ==================== 주문 수정 상세 팝업 모달 ==================== -->
-  <div class="modal-overlay" id="orderEditModal" style="z-index: 110;">
+  <!-- ==================== 관리자 비밀번호 인증 팝업 모달 ==================== -->
+  <div class="modal-overlay" id="adminAuthModal">
     <div class="modal-sheet modal-sheet-small">
       <div class="modal-header">
         <div class="modal-title">
-          <span>✏️</span>
-          <span>주문 상세 수정</span>
+          <span>🔒</span> <span>관리자 인증</span>
         </div>
-        <button type="button" class="btn-close-modal" id="btnCloseEditModal">✕</button>
+        <button type="button" class="btn-close-modal" id="btnCloseAdminAuthModal">✕</button>
       </div>
-
-      <div class="edit-modal-body">
-        <div class="edit-form-group">
-          <label class="edit-form-label">음료 메뉴</label>
-          <div id="editMenuNameDisplay" class="edit-menu-name-tag">아메리카노</div>
+      <div class="auth-modal-body">
+        <div style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 12px;">
+          카페 및 메뉴 관리는 관리자만 가능합니다.<br>관리자 비밀번호를 입력하세요.
         </div>
-
-        <div class="edit-form-group">
-          <label class="edit-form-label" for="editPersonInput">주문자 이름</label>
-          <input type="text" id="editPersonInput" class="edit-text-input" placeholder="이름 입력 (예: 김철수)">
-        </div>
-
-        <div class="edit-form-group" id="editTempGroup">
-          <label class="edit-form-label">온도 선택</label>
-          <div class="edit-temp-toggle">
-            <button type="button" id="btnEditTempIce" class="btn-temp-option ice active">ICE</button>
-            <button type="button" id="btnEditTempHot" class="btn-temp-option hot">HOT</button>
-          </div>
-        </div>
-
-        <div class="edit-form-group">
-          <label class="edit-form-label">옵션</label>
-          <label class="edit-checkbox-label">
-            <input type="checkbox" id="editMildCheckbox">
-            <span>🌱 연하게 (샷 조절)</span>
-          </label>
-        </div>
-
-        <div class="edit-form-group">
-          <label class="edit-form-label">수량</label>
-          <div class="edit-qty-stepper">
-            <button type="button" id="btnEditQtyMinus" class="btn-step btn-minus">−</button>
-            <span id="editQtyVal" class="qty-val nonzero">1</span>
-            <button type="button" id="btnEditQtyPlus" class="btn-step btn-plus">+</button>
-          </div>
+        <input type="password" id="adminPinInput" class="admin-pin-input" placeholder="비밀번호 입력" maxlength="20">
+        <div class="auth-actions">
+          <button type="button" id="btnSubmitAdminAuth" class="btn-save-edit">인증</button>
+          <button type="button" id="btnCancelAdminAuth" class="btn-cancel-edit">취소</button>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="edit-modal-actions">
-        <button type="button" id="btnSaveEditOrder" class="btn-save-edit">수정 완료</button>
-        <button type="button" id="btnCancelEditOrder" class="btn-cancel-edit">취소</button>
+
+  <!-- ==================== 새 카페 등록 팝업 모달 ==================== -->
+  <div class="modal-overlay" id="addCafeModal">
+    <div class="modal-sheet modal-sheet-small">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🏪</span> <span>새 카페 등록</span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseAddCafeModal">✕</button>
+      </div>
+      <div class="auth-modal-body">
+        <div class="form-group">
+          <label class="form-label">카페 이름</label>
+          <input type="text" id="modalNewCafeName" class="form-input" placeholder="예: 컴포즈 양재점, 사내카페">
+        </div>
+        <div class="auth-actions">
+          <button type="button" id="btnSaveNewCafeModal" class="btn-save-edit">카페 생성</button>
+          <button type="button" id="btnCancelNewCafeModal" class="btn-cancel-edit">취소</button>
+        </div>
       </div>
     </div>
   </div>

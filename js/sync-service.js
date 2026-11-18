@@ -7,14 +7,18 @@ class CloudSyncService {
   constructor() {
     this.db = null;
     this.isOnline = false;
+    this.hasLoadedFromServer = false;
     this.roomId = this.getRoomIdFromUrl();
     this.listeners = [];
     this.roomData = {
-      title: "모두의 음료",
-      activeCafeId: "starbucks",
+      title: "우면순장님을 위한 음료선택",
+      activeCafeId: "brunchbean",
       cafeOrder: [],
       orders: [],
+      backupOrders: [],
+      availableMenuIds: null, // 오늘 관리자가 지정한 메뉴 ID 목록
       customCafes: null,
+      adminPin: "1220",
       updatedAt: Date.now()
     };
 
@@ -32,6 +36,7 @@ class CloudSyncService {
 
   getShareUrl() {
     const url = new URL(window.location.href);
+    url.searchParams.delete("admin");
     if (this.roomId && this.roomId !== "main_room") {
       url.searchParams.set("room", this.roomId);
     } else {
@@ -64,12 +69,17 @@ class CloudSyncService {
           this.updateConnectionBadge(true);
 
           if (doc.exists) {
+            this.hasLoadedFromServer = true;
             const data = doc.data();
             this.roomData = { ...this.roomData, ...data };
             this.notifyListeners(this.roomData);
           } else {
-            // 최초 접속 시 기본 데이터로 방 생성
-            this.initRoomDoc();
+            // 로컬 캐시(오프라인 초기 상태)에서 문서가 없다고 판단한 경우 절대 서버를 덮어쓰지 않음!
+            if (doc.metadata && doc.metadata.fromCache) {
+              console.warn("로컬 캐시 스냅샷 대기 중 (서버 응답 전 초기화 방지)");
+              return;
+            }
+            this.initRoomDocSafely();
           }
         },
         (err) => {
@@ -85,24 +95,35 @@ class CloudSyncService {
     }
   }
 
-  async initRoomDoc() {
+  async initRoomDocSafely() {
+    if (!this.roomRef) return;
     try {
+      // 서버에서 직접 한 번 더 확인하여 기존 주문 데이터가 절대 지워지지 않도록 보호
+      const serverDoc = await this.roomRef.get({ source: "server" });
+      if (serverDoc.exists) {
+        this.hasLoadedFromServer = true;
+        this.roomData = { ...this.roomData, ...serverDoc.data() };
+        this.notifyListeners(this.roomData);
+        return;
+      }
+
       const initialData = {
-        title: localStorage.getItem("cafe_order_app_title") || "모두의 음료",
-        activeCafeId: localStorage.getItem("cafe_order_active_id") || "starbucks",
+        title: localStorage.getItem("cafe_order_app_title") || "우면순장님을 위한 음료선택",
+        activeCafeId: localStorage.getItem("cafe_order_active_id") || "brunchbean",
         orders: [],
+        adminPin: "1220",
         updatedAt: Date.now()
       };
       await this.roomRef.set(initialData, { merge: true });
     } catch (e) {
-      console.error("방 초기화 문서 생성 실패:", e);
+      console.error("방 초기화 문서 확인 실패:", e);
     }
   }
 
   onSync(callback) {
     this.listeners.push(callback);
-    // 현재 데이터가 있으면 즉시 1회 호출
-    if (this.roomData) {
+    // 서버에서 실제 데이터를 불러온 이후에만 즉시 호출 (초기 빈 배열로 덮어쓰기 방지)
+    if (this.hasLoadedFromServer && this.roomData) {
       callback(this.roomData);
     }
   }
@@ -115,6 +136,23 @@ class CloudSyncService {
         console.error("리스너 실행 오류:", e);
       }
     });
+  }
+
+  // 관리자 비밀번호 변경 동기화
+  async setAdminPin(adminPin) {
+    const trimmed = (adminPin || "").trim();
+    if (!trimmed) return false;
+    this.roomData.adminPin = trimmed;
+    if (this.roomRef) {
+      try {
+        await this.roomRef.set({ adminPin: trimmed, updatedAt: Date.now() }, { merge: true });
+        return true;
+      } catch (e) {
+        console.error("관리자 비밀번호 동기화 실패:", e);
+        return false;
+      }
+    }
+    return true;
   }
 
   // 방 타이틀 변경 (PC <-> 모바일 실시간 동기화)
@@ -154,6 +192,18 @@ class CloudSyncService {
     }
   }
 
+  // 오늘 주문 가능한 메뉴 ID 목록 동기화 (관리자 지정)
+  async setAvailableMenuIds(menuIds) {
+    this.roomData.availableMenuIds = menuIds;
+    if (this.roomRef) {
+      try {
+        await this.roomRef.set({ availableMenuIds: menuIds, updatedAt: Date.now() }, { merge: true });
+      } catch (e) {
+        console.error("주문 가능 메뉴 동기화 실패:", e);
+      }
+    }
+  }
+
   // 커스텀 카페/메뉴 목록 전체 동기화
   async setCustomCafes(cafes) {
     this.roomData.customCafes = cafes;
@@ -178,6 +228,38 @@ class CloudSyncService {
     }
   }
 
+  // 트랜잭션 기반 안전한 주문 업데이트 (다른 사람의 주문을 실수로 덮어쓰지 않도록 보호)
+  async updateOrdersTransaction(mutatorFn) {
+    if (!this.db || !this.roomRef) {
+      const updated = mutatorFn(this.roomData.orders || []);
+      this.roomData.orders = updated;
+      return updated;
+    }
+
+    try {
+      const updatedOrders = await this.db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(this.roomRef);
+        const currentOrders = (doc.exists && Array.isArray(doc.data().orders))
+          ? doc.data().orders
+          : (this.roomData.orders || []);
+        const nextOrders = mutatorFn(JSON.parse(JSON.stringify(currentOrders)));
+        transaction.set(
+          this.roomRef,
+          { orders: nextOrders, updatedAt: Date.now() },
+          { merge: true }
+        );
+        return nextOrders;
+      });
+      this.roomData.orders = updatedOrders;
+      return updatedOrders;
+    } catch (e) {
+      console.error("트랜잭션 주문 업데이트 실패, 일반 저장으로 대체:", e);
+      const fallbackOrders = mutatorFn(this.roomData.orders || []);
+      await this.setOrders(fallbackOrders);
+      return fallbackOrders;
+    }
+  }
+
   // 전체 주문 상태 저장 (배열 형태)
   async setOrders(ordersArray) {
     this.roomData.orders = ordersArray;
@@ -190,16 +272,50 @@ class CloudSyncService {
     }
   }
 
-  // 전체 주문 비우기 (초기화)
+  // 전체 주문 비우기 (초기화 전 자동 백업 저장)
   async clearOrders() {
+    const previousOrders = Array.isArray(this.roomData.orders) && this.roomData.orders.length > 0
+      ? JSON.parse(JSON.stringify(this.roomData.orders))
+      : null;
+
     this.roomData.orders = [];
+    if (previousOrders) {
+      this.roomData.backupOrders = previousOrders;
+      this.roomData.backupSavedAt = Date.now();
+    }
+
     if (this.roomRef) {
       try {
-        await this.roomRef.set({ orders: [], updatedAt: Date.now() }, { merge: true });
+        const payload = { orders: [], updatedAt: Date.now() };
+        if (previousOrders) {
+          payload.backupOrders = previousOrders;
+          payload.backupSavedAt = Date.now();
+        }
+        await this.roomRef.set(payload, { merge: true });
       } catch (e) {
         console.error("주문 초기화 동기화 실패:", e);
       }
     }
+  }
+
+  // 백업된 주문 복원하기
+  async restoreBackupOrders() {
+    const backup = this.roomData.backupOrders;
+    if (!Array.isArray(backup) || backup.length === 0) return false;
+    this.roomData.orders = JSON.parse(JSON.stringify(backup));
+    if (this.roomRef) {
+      try {
+        await this.roomRef.set({
+          orders: this.roomData.orders,
+          updatedAt: Date.now()
+        }, { merge: true });
+        return true;
+      } catch (e) {
+        console.error("주문 백업 복원 실패:", e);
+        return false;
+      }
+    }
+    return true;
   }
 
   updateConnectionBadge(isOnline) {
